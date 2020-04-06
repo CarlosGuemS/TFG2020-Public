@@ -1,0 +1,23 @@
+Datasets are obtained from the Center of Advanced Studies in Adaptive Systems at Washington State University. The datasets used here may be obtained free of charge for academic purposes at thier webiste: http://casas.wsu.edu/
+
+In order to use the datasets, you must create a folder in this directory with the specific name in all caps. Then extract the compressed file in it. You must then run the python file with the same folder name at 'Our Classifiers'/Datasets. This will extract the raw information from the files and be stored in a more convient format elsewhere. 
+
+The datasets supported in this project are:
+
+1. ADL Activities: in folder KYOTO1
+D. Cook and M. Schmitter-Edgecombe, Assessing the quality of activities in a
+smart environment.  Methods of Information in Medicine, 2009.
+
+2. ADL Activities with Errors: in folder KYOTO2
+D. Cook and M. Schmitter-Edgecombe, Assessing the quality of activities in a
+smart environment.  Methods of Information in Medicine, 2009.
+
+3. Interweaved ADL Activities: in folder KYOTO3
+G. Singla, D. Cook, and M. Schmitter-Edgecombe,
+Tracking activities in complex settings using smart
+environment technologies.  International Journal
+of BioSciences, Psychiatry and Technology, 1(1):25-35, 2009.
+
+17. Daily life, 2010-2011: in folder ARUBA
+D. Cook. Learning setting-generalized activity mdoels for smart spaces.
+IEEE Intelligent Systems, 2011.
