@@ -1,0 +1,4 @@
+.vscode
+*/__pycache__
+CASAS/[^dataset_info.txt]
+Our Classifiers/\Datasets/*.py
