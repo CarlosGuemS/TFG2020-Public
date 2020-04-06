@@ -1,5 +1,5 @@
 **.vscode
-*/__pycache__
+**/__pycache__
 CASAS/*
-!dataset_info.txt
+!CASAS/dataset_info.txt
 **.features
