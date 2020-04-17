@@ -97,7 +97,7 @@ if __name__ == "__main__":
         """
 
         input_file = open(input_file_path, 'r')
-        activity = int(input_file_path[-1])
+        activity = int(input_file_path[-1]) - 1
         #Reads all the lines in the file
         for sensor_event in input_file.read().split('\n'):
             if len(sensor_event) == 0:
@@ -114,6 +114,7 @@ if __name__ == "__main__":
                 yield [timestamp, sensor, value, activity]
         #We close the file
         input_file.close()
+        
 
     #If the script runs, we will create archives with the intermediate data
     for participant in PARTICIPANTS:
@@ -135,6 +136,8 @@ if __name__ == "__main__":
         new_file = open(new_file_path, "wb")
         pickle.dump(processed_events, new_file)
         new_file.close()
+
+        print(processed_events[0:10])
 
 #Accesing the intermediate data
 def obtaining_data(fold:int = 1, *args):

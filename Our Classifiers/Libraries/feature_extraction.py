@@ -103,6 +103,7 @@ def _obtain_class(window:list):
     return window[-1][-1]
 
 ##Obtaining the feature
+NUMBER_BASE_FEATURES = 4
 def obtain_feature_vector(features:list, window:list, prev_class: int,
                           num_sensor: int, mi):
     """
@@ -168,7 +169,7 @@ def obtain_feature_vector(features:list, window:list, prev_class: int,
     return feature_vector
 
 def obtain_event_segmentation_data(data:list, features:str, num_sensor:int,
-                                   mi = None):
+                                   num_classes:int, mi = None):
     """
     Given data and window size, obtain the features through the given window
     size
@@ -176,12 +177,13 @@ def obtain_event_segmentation_data(data:list, features:str, num_sensor:int,
     :param data list: the data, already segmented into windows
     :param window_size int: window size
     :param num_sensor int: number of sensors in the data
+    :param num_classes int: number of classes in the data
     :param mi numpy.array: mutual information matrix (if applicable)
     :returns: array of features and the corresponding array of classes
     :rtype: numpy.array, numpy.array
     """
     temp_data = []; temp_class = []
-    last_class = -1
+    last_class = num_classes
     #We cover all the possible windows
     for window in data:
         temp_data.append(obtain_feature_vector(features, window, last_class,

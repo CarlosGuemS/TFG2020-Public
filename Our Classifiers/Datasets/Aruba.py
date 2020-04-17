@@ -66,7 +66,7 @@ def obtain_num_from_sensor(sensor: str, value: str):
 #Generating the intermediate data
 if __name__ == "__main__":
 
-    current_activity = 0
+    current_activity = -1
     activity_ends = False
 
     #If the script runs, we will create one file with all the intermediate data
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         try:
             if len(event) == 6:
                 if event[-1] == "begin":
-                    current_activity = ACTIVITIY_NAMES.index(event[-2]) + 1
+                    current_activity = ACTIVITIY_NAMES.index(event[-2])
                 elif event[-1] == "end":
                     activity_ends = True
                 else:
@@ -94,21 +94,18 @@ if __name__ == "__main__":
             sys.exit(-1)
         
         #If the event doesn't belong to an activity, we discard it
-        if not current_activity:
-            continue
-        
-        #Obtain the formated event
-        timestamp = dp.obtain_datetime_from_event(event[0], event[1])
-        sensor, value = obtain_num_from_sensor(event[2], event[3])
-        
-        #If there wasn't any problem with the sensor, it gets rebuilt
-        if not (sensor is None or value is None):
-            formatted_data.append([timestamp, sensor, value,
-                                   current_activity])
+        if not current_activity == -1:
+            #Obtain the formated event
+            timestamp = dp.obtain_datetime_from_event(event[0], event[1])
+            sensor, value = obtain_num_from_sensor(event[2], event[3])
+            #If there wasn't any problem with the sensor, it gets rebuilt
+            if not (sensor is None or value is None):
+                formatted_data.append([timestamp, sensor, value,
+                                    current_activity])
         
         #We check if the activity ended
         if activity_ends:
-            current_activity = 0
+            current_activity = -1
         
     #We need to order formatted data:
     formatted_data.sort(key=itemgetter(0))

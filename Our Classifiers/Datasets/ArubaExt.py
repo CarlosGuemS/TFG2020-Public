@@ -11,9 +11,9 @@ FORMATED_DATA_PATH = "../Datasets/ARUBA"
 FILE_NAME = "aruba_ext"
 
 ##ACTIVITIES
-ACTIVITIY_NAMES = ["Other", "Meal_Preparation", "Relax", "Eating", "Work", "Sleeping",
+ACTIVITIY_NAMES = ["Meal_Preparation", "Relax", "Eating", "Work", "Sleeping",
                    "Wash_Dishes", "Bed_to_Toilet", "Enter_Home", "Leave_Home",
-                   "Housekeeping", "Respirate"]
+                   "Housekeeping", "Respirate"] #And "Other"
 
 ##Sensor Data
 NUM_EVENTS = 42
@@ -66,7 +66,7 @@ def obtain_num_from_sensor(sensor: str, value: str):
 #Generating the intermediate data
 if __name__ == "__main__":
 
-    current_activity = None
+    current_activity = len(ACTIVITIY_NAMES)
     activity_ends = False
 
     #If the script runs, we will create one file with all the intermediate data
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         
         #We check if the activity ended
         if activity_ends:
-            current_activity = 0
+            current_activity = len(ACTIVITIY_NAMES)
     
     #We need to order formatted data:
     formatted_data.sort(key=itemgetter(0))

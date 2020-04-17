@@ -3,7 +3,7 @@ import numpy as np
 from os import path
 
 #Scikit learn
-from sklearn.naive_bayes import GaussianNB
+from mixed_naive_bayes import MixedNB
 
 #Preprocessing
 sys.path.append('../Libraries')
@@ -148,6 +148,8 @@ if __name__ == "__main__":
         for ff in range(len(features)):
 
             #Configuring the features
+            categorical_features = [0]
+            max_categories=[7]
             prev_class_pos = -1
             if features[ff] == "BASE":
                 feature_vector = ["SIMPLE COUNT SENSOR"]
@@ -155,6 +157,8 @@ if __name__ == "__main__":
                 feature_vector = ["PREV CLASS LAST EVENT",
                                   "SIMPLE COUNT SENSOR"]
                 #PREV CLASS LAST EVENT is discrete, so we have to set it up as one
+                categorical_features.append(fe.NUMBER_BASE_FEATURES)
+                max_categories.append(len(dataset.ACTIVITIY_NAMES)+1)
                 prev_class_pos = fe.NUMBER_BASE_FEATURES
             elif features[ff] == "TD":
                 feature_vector = ["TIME DEPEDENCY COUNT SENSOR"]
@@ -163,16 +167,22 @@ if __name__ == "__main__":
             elif features[ff] == "PWA+TD":
                 feature_vector = ["PREV CLASS LAST EVENT",
                                 "TIME DEPEDENCY COUNT SENSOR"]
+                categorical_features.append(fe.NUMBER_BASE_FEATURES)
+                max_categories.append(len(dataset.ACTIVITIY_NAMES)+1)
                 prev_class_pos = fe.NUMBER_BASE_FEATURES
             elif features[ff] == "PWA+EMI":
                 feature_vector = ["PREV CLASS LAST EVENT",
                                   "MATRIX COUNT SENSOR"]
+                categorical_features.append(fe.NUMBER_BASE_FEATURES)
+                max_categories.append(len(dataset.ACTIVITIY_NAMES)+1)
                 prev_class_pos = fe.NUMBER_BASE_FEATURES
             elif features[ff] == "TD+EMI":
                 feature_vector = ["TIME DEPEDENCY MATRIX COUNT SENSOR"]
             elif features[ff] == "PWA+TD+EMI":
                 feature_vector = ["PREV CLASS LAST EVENT",
                                   "TIME DEPEDENCY MATRIX COUNT SENSOR"]
+                categorical_features.append(fe.NUMBER_BASE_FEATURES)
+                max_categories.append(len(dataset.ACTIVITIY_NAMES)+1)
                 prev_class_pos = fe.NUMBER_BASE_FEATURES
             else:
                 print(features[ff])
@@ -194,7 +204,8 @@ if __name__ == "__main__":
             testing_data, testing_class = temp_data
 
             #We run the classifer
-            classifier = GaussianNB()
+            classifier = MixedNB(categorical_features=categorical_features,
+                                 max_categories=max_categories)
             classifier.fit(training_data, training_class)
 
             #We evaluate and store the result of the Accuracy file:

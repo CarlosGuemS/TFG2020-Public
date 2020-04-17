@@ -23,16 +23,16 @@ ACTIVITIY_NAMES = ["Fill medication dispenser", "Wash DVD", "Water plants",
                    "Clean", "Choose outfit"]
 
 ##Sensor Data
-NUM_EVENTS = 79
-REAL_VALUE_EVENTS = set([71, 72, 73, 74, 76, 77, 78])
+NUM_EVENTS = 47
+REAL_VALUE_EVENTS = set([41, 42, 43 ,45, 46])
 """
 Sensor codes:
--[0-50] Motion Sensor MX 1-26
--[51-58] Item Sensor IX 1-8
--[59-70] Door Sensor DX 1-12
--[71-74] Water/Burner Sensor AD1-X A,B,C
--[75] Phone Sensor
--[76-78] Temperature Sensor TX 1-3
+-[0-26] Motion Sensor MX 1-26,51
+-[27-34] Item Sensor IX 1-8
+-[35-40] Door Sensor DX 7-12
+-[41-43] Water/Burner Sensor AD1-X A,B,C
+-[44] Phone Sensor P01
+-[45-46] Temperature Sensor TX 1-2
 """
 ##Obtaining numeric values from sensor data
 _letter_to_num = {"A":0, "B":1, "C":2}
@@ -51,21 +51,27 @@ def obtain_num_from_sensor(sensor: str, value: str):
     :rtype: (int, float)
     """
     #Obtain sensor number
+    
     if sensor[0] == "M":  #MX
         sensor_num = (int(sensor[1:])) - 1
+        if sensor_num == 50:
+            #Special case, sensor M51:
+            sensor_num = 26
     elif sensor[0] == "I": #IX
-        sensor_num = (int(sensor[1:])) + 50
+        if sensor == "I09": #Ignore I09
+            return None, None
+        sensor_num = (int(sensor[1:])) + 26
     elif sensor[0] == "D": #DX
-        sensor_num = (int(sensor[1:])) + 58
+        sensor_num = (int(sensor[1:])) + 28
     elif sensor == "P01": #P01
-        sensor_num = 75
+        sensor_num = 44
     elif sensor[0] == "A": #AD1
-        sensor_num = 71 + _letter_to_num[sensor[-1]]
+        sensor_num = 41 + _letter_to_num[sensor[-1]]
     elif sensor[0] == "T": #AD1
-        sensor_num = (int(sensor[1:])) + 75
-    #Unkown sensor E01
-    elif sensor[0] == "E": #E01
+        sensor_num = (int(sensor[1:])) + 44
+    elif sensor[0] == "E": #Unkown sensor E01
         return None, None
+    
     #Unrecognized sensor: problem with the input data
     else:
         #Algo ha ocurrido
@@ -89,6 +95,7 @@ def obtain_num_from_sensor(sensor: str, value: str):
 #Intermediate data generation
 if __name__ == "__main__":
     #If the script runs, we will create archives with the intermediate data
+    different_sensors = set()
     for participant in PARTICIPANTS:
         #We obtain the process events for all activities
         processed_events = []
@@ -107,11 +114,12 @@ if __name__ == "__main__":
                 continue
 
             timestamp = dp.obtain_datetime_from_event(event[0], event[1])
+            different_sensors.add(event[2])
             sensor, value = obtain_num_from_sensor(event[2], event[3])
             if sensor is None or value is None:
                 #Invalid input
                 continue
-            activity = int(event[4])
+            activity = int(event[4]) - 1
 
             #We store the result
             processed_events.append([timestamp, sensor, value, activity])
@@ -123,6 +131,8 @@ if __name__ == "__main__":
         new_file = open(new_file_path, "wb")
         pickle.dump(processed_events, new_file)
         new_file.close()
+    
+    print(sorted(list(different_sensors)))
 
 #Accesing the intermediate data
 def obtaining_data(fold:int = 1, *args):

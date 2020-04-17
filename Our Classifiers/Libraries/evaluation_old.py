@@ -40,7 +40,7 @@ def _prev_class_evaluation(initial_class:int, test_data, test_class,
     #We create a copy of the test data
     test_data_copy = np.copy(test_data)
     #We also create a vector where to store the class predictions
-    test_prediction = np.zeros(shape=test_class.shape, dtype=np.int32)
+    test_prediction = np.zeros(shape=test_class.shape)
     
     #We modify the given copy to adapt its prev_class_evaluation method
     predicted_class = initial_class
@@ -50,76 +50,80 @@ def _prev_class_evaluation(initial_class:int, test_data, test_class,
 
         #We predict the next class
         next_feature = np.resize(test_data_copy[i], (1, test_data_copy.shape[1]))
-        predicted_class = test_prediction[i] = np.int32(predict_function(next_feature)[0])
+        predicted_class = test_prediction[i] = predict_function(next_feature)[0]
 
     #Once the classes have been predicted, we check the accuracy
     hits = test_prediction == test_class
     return np.sum(hits) / test_class.shape[0], test_prediction
 
-def obtain_prior_probabilitites(test_samples, num_activities:int):
-    """
-    Obtain the prior probabilitites of the training samples.
-    The classes must be normalized (range from 0 to C-1, where C is the number
-    of classes)
-
-    :param test_samples numpy.array: training samples
-    :param num_activitites int: number of activities
-    """
-    prior_probs = np.zeros(shape=(num_activities))
-    test_classes = test_samples[:, -1]
-    for i in test_classes:
-        prior_probs[i] = prior_probs[i] + 1
-    return prior_probs / test_classes.shape[0]
 
 ##Classes and methods to print results
-
-#Accuracy
-class Accuracy_Activity:
+class Evaluation:
     """
-    Creates a file storing the accuracies per class
+    Creates an object with an associated file. The file will be used to
+    obtain all the results. Parameters and number of activities is to be
+    passed to create the header of the file.
 
-    :param file_name file: file object where to write the results
-    :param windows list: windows used
+    :param file_object file: file object where to write the results
+    :param parameters list: Parameters used
     :param list_activities int: activities used
     """
 
-    def __init__(self, file_name:str, windows:list, list_activities:list):
-        self.file_name = file_name
+    def __init__(self, file_object, parameters:list,
+                 list_activities:list):
+        
+        self.file_results = file_object
         self.file_prior = None
         self.number_activities = len(list_activities)
-        self.values_size = len(windows)+1
-        self.data = np.zeros(shape=(self.values_size,
-                                    self.number_activities+1))
-        self.index = 0
-        self.max_index = len(windows)
 
         #Creation of the header
-        self.activities_names = (["Window Size", "Global accuracy"] +
-                                ["Activity " + act for act in list_activities])
-        self.header = windows.copy()
-        self.header += ["Average"]
+        activities_names = ["Activity " + act for act in list_activities]
+        header = parameters.copy()
+        header += ["Total accuracy"]
+        header += ["Accuracy " + act for act in activities_names]
+        self._print_to_self(header, self.file_results)
+
     
-    def evaluate_and_store(self, classifier, testing_data, testing_class,
-                           prev_class_pos:int = -1,
+    def add_prior_prob(self, file_object, parameters:list,
+                       list_activities:list):
+        """
+        Add a file to output the prior probabilitites for each class with the
+        given classifier
+
+        :param file_object file: file object where to write the prior
+        probabilitites
+        :param parameters list: Parameters used
+        :param list_activities int: activities used
+        """
+        self.file_prior = file_object
+        header = parameters.copy()
+        header += ["Prior probability " + act for act in list_activities]
+        self._print_to_self(header, self.file_prior)
+
+    def evaluate_and_store(self, params:list, classifier, testing_data,
+                           testing_class, prev_class_pos:int = -1,
                            prev_class_initial_class: int = None):
         """
-        Add the values to the array, is posible.
+        Given the results of the classifiers and the real results, evaluate
+        the accuracy of both the classifier as a whole and by
+        each individual activity. Naive Bayes version
 
+        :param params list: list of parameters used
         :param classifier: the naive bayes classifier
         :param testing_data numpy.array: data vectors
         :param testing_class: the class of the data vectors
         :param prev_class_pos: the index where the prev_class attribute is
         found in the feature vector(or -1 if it isn't used)
-        :returns: the predicted data
+        :returns: the stored data
         :rtype: numpy.array
         """
+
         #We prepare to print the results
         results_to_return = []
         #We select the score depending if it uses prev_class or not
         if prev_class_pos == -1:
             global_score = classifier.score(testing_data, testing_class)
-            prediction = np.array(classifier.predict(testing_data),
-                                  dtype=np.int32)
+            prediction = classifier.predict(testing_data)
         else:
             data = _prev_class_evaluation(prev_class_initial_class,
                                           testing_data, testing_class,
@@ -144,165 +148,58 @@ class Accuracy_Activity:
                 results_to_return.append(hits_per_class[i] / total_per_class[i])
             else:
                 #If there's no samples of the given class, the accuracy is 0
-                results_to_return.append(0.0)
-
-        if self.index < self.max_index:
-            self.data[self.index, :] = results_to_return
-            self.index += 1
-        else:
-            msg_error("Table already full")
+                results_to_return.append(0.0);
         
-        return prediction
-    
-    def print_results(self):
-        """
-        Prints the results stored in the object
-        """
-        #We print a warning if the table isn't full yet
-        if self.index < self.max_index:
-            print("Warning: Table of prior probabilities not full",
-                  file=sys.stderr)
+        results_to_print = params.copy() + results_to_return.copy()
+        self._print_to_self(results_to_print, self.file_results)
 
-        #We obtain the averages
-        for i in range(self.data.shape[1]):
-            self.data[-1, i] = np.average(self.data[0:-1, i])
+        #We check if we also have to print the prior probability
+        if self.file_prior: 
+            results_to_print = params.copy()+classifier.class_prior_.tolist()
+            self._print_to_self(results_to_print, self.file_prior)
         
-        #We open the file
-        table_file = open(self.file_name + ".csv", 'w')
+        return np.array(results_to_return)
 
-        #We print the first row
-        for x in self.activities_names:
-            print(x, end=", ", file=table_file)
-        print(file=table_file)
 
-        #We print the rest of the table
-        for row in range(self.values_size):
-            #First we print the header of the row
-            print(self.header[row], end=", ", file = table_file)
-
-            for value in self.data[row, :]:
-                print(value, end=", ", file = table_file)
-
-            #Close row
-            print(self.data[row, -1], file = table_file)
-        
-        #We close the file
-        table_file.close()
-    
-    def return_global(self):
+    def _print_to_self(self, list_to_print: list, file_object):
         """
-        Returns the global accuracy results
+        Given a list, print it in the file according to csv formar
 
-        :returns: the global accuracy
-        :rtype: numpy.array
+        :param list_to_print: the list to print
+        :param file file: file to print
         """
-        #We print a warning if the table isn't full yet
-        if self.index < self.max_index:
-            print("Warning: Table of prior probabilities not full",
-                  file=sys.stderr)
-        
-        return self.data[:, 0]
-
-#Prior Probabilities
-class Prior_Probabilities:
-    """
-    Creates a file storing the prior probabilities
-
-    :param file_name str: name of the file where to store the probabilitites
-    :param num_activities int: number of columns
-    :param header list: header for the table
-    """
-    def __init__(self, file_name:str, num_activities:int,
-                 header:list = [5, 12, 19]):
-        self.data = np.zeros(shape=(len(header), num_activities))
-        self.index = 0
-        #We store other values
-        self.header = header
-        self.max_index = len(header)
-        self.values_size = num_activities
-        self.file_name = file_name
-    
-    def store_result(self, values:list):
-        """
-        Add the values to the array, is posible.
-
-        :param values list: list of values to store
-        """
-        if len(values) != self.values_size:
-            msg_error("Values are not the correct error")
-        elif self.index < self.max_index:
-            self.data[self.index, :] = values
-            self.index += 1
-        else:
-            msg_error("Table already full")
-    
-    def print_results(self):
-        """
-        Prints the results stored in the object
-
-        """
-        #We print a warning if the table isn't full yet
-        if self.index < self.max_index:
-            print("Warning: Table of prior probabilities not full",
-                  file=sys.stderr)
-        
-        table_file = open(self.file_name + "_prior.csv", 'w')
-        for row in range(self.values_size):
-            #First we print the header of the row
-            print(self.header[row], end=", ", file = table_file)
-
-            for value in self.data[row, :]:
-                print(value, end=", ", file = table_file)
-
-            #Close row
-            print(self.data[row, -1], file = table_file)
-        table_file.close()
-
-#Confusion matrix
-class Confusion_Matrix:
-    """
-    Creates a file storing the confusion matrix
-
-    :param file_name str: name of the file where to store the matrix
-    :param number_activities: int: the number of activitites
-    """
-    def __init__(self, file_name:str, number_activities:int):
-        self.file = open(file_name + ".cm", 'w')
-        self.number_activities = number_activities
+        for r in list_to_print[:-1]:
+            print(r, end=',', file = file_object)
+        print(list_to_print[-1], file= file_object)
     
     def close(self):
         """
-        Close the internal file
+        Closes the open files
         """
-        self.file.close()
-    
-    def add_confusion_matrix(self, header:str, real_class, obtained_class):
-        """
-        Creates a confusion matrix in the file
+        self.file_results.close()
+        if self.file_prior:
+            self.file_prior.close()
 
-        :param real_class numpy.array: the real classes
-        :param obtained_class numpy.array: the obtained class
-        :returns: the confusion matrix
-        :rtype: numpy.array
-        """
-        #Print the header
-        print(header, file=self.file)
+#Confusion matrix
+def confusion_matrix(real_class, obtained_class, number_activities:int):
+    """
+    Creates a confusion matrix
 
-        #Create the matrix
-        confusion_matrix = np.zeros(shape=(self.number_activities,
-                                        self.number_activities),
-                                    dtype=np.float64)
-        #Count the number of hits
-        for real_act, obtained_act in zip(real_class, obtained_class):
-            confusion_matrix[real_act, obtained_act] += 1
-        #Obtain the averages
-        for ii in range(self.number_activities):
-            total = np.sum(confusion_matrix[ii, :])
-            total = total if total else 1
-            confusion_matrix[ii, :] = confusion_matrix[ii,:] / total
-        
-        #Print the matrix
-        print(confusion_matrix, end = "\n\n\n", file = self.file)
+    :param real_class numpy.array: the real classes
+    :param obtained_class numpy.array: the obtained class
+    :param number_activities int: number of activities
+    :returns: the confusion matrix
+    :rtype: numpy.array
+    """
+    confusion_matrix = np.zeros(shape=(number_activities, number_activities), dtype=np.float64)
+    real_class = real_class-1; obtained_class = obtained_class-1;
+    for real_act, obtained_act in zip(real_class, obtained_class):
+        confusion_matrix[real_act, obtained_act] += 1
+    for ii in range(number_activities):
+        total = np.sum(confusion_matrix[ii, :])
+        total = total if total else 1
+        confusion_matrix[ii, :] = confusion_matrix[ii,:] / total
+    return confusion_matrix
 
 #Latex accuracy table
 class Accuracy_Table:
@@ -330,7 +227,7 @@ class Accuracy_Table:
         :param values list: list of values to store
         """
         if len(values) != self.values_size:
-            msg_error("Values are not the correct size")
+            msg_error("Values are not the correct error")
         elif self.index < self.max_index:
             self.data[:, self.index] = values
             self.index += 1

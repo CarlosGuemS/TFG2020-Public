@@ -97,7 +97,7 @@ if __name__ == "__main__":
         """
 
         input_file = open(input_file_path, 'r')
-        activity = int(input_file_path[-1])
+        activity = int(input_file_path[-1]) - 1
         #Reads all the lines in the file
         for sensor_event in input_file.read().split('\n'):
             if len(sensor_event) == 0:
