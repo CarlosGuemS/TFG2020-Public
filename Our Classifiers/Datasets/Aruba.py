@@ -96,7 +96,7 @@ if __name__ == "__main__":
         #If the event doesn't belong to an activity, we discard it
         if not current_activity == -1:
             #Obtain the formated event
-            timestamp = dp.obtain_datetime_from_event(event[0], event[1])
+            timestamp = dp.obtain_datetime_from_event(event[0] + " " + event[1])
             sensor, value = obtain_num_from_sensor(event[2], event[3])
             #If there wasn't any problem with the sensor, it gets rebuilt
             if not (sensor is None or value is None):

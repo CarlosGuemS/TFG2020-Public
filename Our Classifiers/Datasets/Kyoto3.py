@@ -23,16 +23,16 @@ ACTIVITIY_NAMES = ["Fill medication dispenser", "Wash DVD", "Water plants",
                    "Clean", "Choose outfit"]
 
 ##Sensor Data
-NUM_EVENTS = 47
+NUM_EVENTS = 48
 REAL_VALUE_EVENTS = set([41, 42, 43 ,45, 46])
 """
 Sensor codes:
 -[0-26] Motion Sensor MX 1-26,51
--[27-34] Item Sensor IX 1-8
--[35-40] Door Sensor DX 7-12
--[41-43] Water/Burner Sensor AD1-X A,B,C
--[44] Phone Sensor P01
--[45-46] Temperature Sensor TX 1-2
+-[27-35] Item Sensor IX 1-9
+-[36-41] Door Sensor DX 7-12
+-[42-44] Water/Burner Sensor AD1-X A,B,C
+-[45] Phone Sensor P01
+-[46-47] Temperature Sensor TX 1-2
 """
 ##Obtaining numeric values from sensor data
 _letter_to_num = {"A":0, "B":1, "C":2}
@@ -58,17 +58,15 @@ def obtain_num_from_sensor(sensor: str, value: str):
             #Special case, sensor M51:
             sensor_num = 26
     elif sensor[0] == "I": #IX
-        if sensor == "I09": #Ignore I09
-            return None, None
         sensor_num = (int(sensor[1:])) + 26
     elif sensor[0] == "D": #DX
-        sensor_num = (int(sensor[1:])) + 28
+        sensor_num = (int(sensor[1:])) + 29
     elif sensor == "P01": #P01
-        sensor_num = 44
+        sensor_num = 45
     elif sensor[0] == "A": #AD1
-        sensor_num = 41 + _letter_to_num[sensor[-1]]
+        sensor_num = 42 + _letter_to_num[sensor[-1]]
     elif sensor[0] == "T": #AD1
-        sensor_num = (int(sensor[1:])) + 44
+        sensor_num = (int(sensor[1:])) + 45
     elif sensor[0] == "E": #Unkown sensor E01
         return None, None
     
@@ -113,7 +111,7 @@ if __name__ == "__main__":
             if not len(event):
                 continue
 
-            timestamp = dp.obtain_datetime_from_event(event[0], event[1])
+            timestamp = dp.obtain_datetime_from_event(event[0] + " " + event[1])
             different_sensors.add(event[2])
             sensor, value = obtain_num_from_sensor(event[2], event[3])
             if sensor is None or value is None:

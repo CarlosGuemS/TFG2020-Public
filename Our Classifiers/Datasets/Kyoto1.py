@@ -104,8 +104,7 @@ if __name__ == "__main__":
                 continue
             #Obtain the different parts of the sensor event
             divided_sensor_event = sensor_event.split('\t')
-            timestamp = dp.obtain_datetime_from_event(divided_sensor_event[0],
-                                                              divided_sensor_event[1])
+            timestamp = dp.obtain_datetime_from_event(divided_sensor_event[0]+" "+divided_sensor_event[1])
             sensor, value = obtain_num_from_sensor(divided_sensor_event[2],
                                         divided_sensor_event[3])
             

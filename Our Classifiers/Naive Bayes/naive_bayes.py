@@ -8,10 +8,10 @@ from sklearn.naive_bayes import GaussianNB
 #Preprocessing
 sys.path.append('../Libraries')
 import feature_extraction as fe
-import mutual_information as mi
 
 #Output
 import evaluation as ev
+import output as out
 
 #Datasets
 sys.path.append('../Datasets')
@@ -22,7 +22,8 @@ from general import msg_error
 
 
 #Constants
-WINDOW_SIZES = [5, 12, 19]
+#WINDOW_SIZES = [5, 12, 19]
+WINDOW_SIZES = [5, 12, 19, 26, 34]
 
 ##STR that indicates usage
 USAGE = "Usage: naive_bayes <feature_mode> <output_name> <data> [--prior]"
@@ -32,38 +33,24 @@ POSIBLE_FEATURE_CONFIG = ["BASE", "PWA", "TD", "EMI", "PWA+TD", "PWA+EMI",
                           "TD+EMI", "PWA+TD+EMI"] #There's also ALL
 
 ##Auxiliary methods
-def flatten(l:list):
+class Counter:
     """
-    Given a list made of lists, return the concatenation of its inner lists
+    Class meant to count the progress of the script
 
-    :param l list: the list to flatten
-    :returns: the flattened list
-    :rtype: list
+    :param number int: number of classifiers
+    :param number str: name of the dataset
     """
-    result = []
-    for x in l:
-        result += x.copy()
-    return result 
-
-def _string__list_to_int_gen(l:list):
-    """
-    Given converts a list of string to a generator of int
+    def __init__(self, number:int, dataset_name:str):
+        self.counter = 0
+        self.number = number
+        self.dataset_name = dataset_name
     
-    :param l list: list of string
-    :returns: generator of int
-    :rtype: map object
-    """
-    return map(lambda x: int(x), l)
-
-def _string__list_to_float_gen(l:list):
-    """
-    Given converts a list of string to a generator of float
-    
-    :param l list: list of string
-    :returns: generator of float
-    :rtype: map object
-    """
-    return map(lambda  x: float(x), l)
+    def checkmarck(self):
+        """
+        Updates progress
+        """
+        self.counter += 1
+        print(self.counter, '/', self.number, self.dataset_name)
 
 """
 Format of the input configuration: additional features. Possible options:
@@ -81,15 +68,19 @@ if __name__ == "__main__":
         msg_error(USAGE)
     
     #Selecting the dataset
-    dataset = sys.argv[3]
+    dataset = sys.argv[3]; placeholder_name = None
     if dataset == "KYOTO1":
         dataset = Kyoto1
+        placeholder_name = "OA"
     elif dataset == "KYOTO2":
         dataset = Kyoto2
+        placeholder_name = "OAE"
     elif dataset == "KYOTO3":
         dataset = Kyoto3
+        placeholder_name = "IwA"
     elif dataset == "ARUBA":
         dataset = Aruba
+        placeholder_name = "DLR"
     else:
         #Unrecongnized dataset
         msg_error("Unrecognized dataset " + dataset)
@@ -109,23 +100,47 @@ if __name__ == "__main__":
     else:
         #Unkown feature
         msg_error("Unkown feature: " + sys.argv[1])
+    counter = Counter(len(WINDOW_SIZES) * (1 + (len(POSIBLE_FEATURE_CONFIG)-1)*(sys.argv[1] == 'ALL')),
+                      sys.argv[3])
     
     
-    #Preparing the output files
-    confusion_matrix_file = ev.Confusion_Matrix(sys.argv[2],
+    #Preparing the output files:
+
+    #Confusion matrices
+    confusion_matrix_file = out.Confusion_Matrix(sys.argv[2],
                                                 len(dataset.ACTIVITIY_NAMES))
-    results_per_class_file = [ev.Accuracy_Activity(sys.argv[2]+"_"+f,
-                                                   WINDOW_SIZES,
-                                                   dataset.ACTIVITIY_NAMES)
-                              for f in features]
-    prior_needed = "--prior" in sys.argv
-    prior_file = latex_file = None
-    if prior_needed:
-        prior_file = ev.Prior_Probabilities(sys.argv[2],
-                                            len(dataset.ACTIVITIY_NAMES))
-    if sys.argv[1] == "ALL":
-        latex_file = ev.Accuracy_Table(len(POSIBLE_FEATURE_CONFIG))
+    #Accuracy
+    accuracy_files = [out.Accuracy_Table(sys.argv[2]+"_"+f+"_ACCURACY")
+                      for f in features]
+    #Recall 
+    recall_files = [out.Results_Per_Activity(sys.argv[2]+"_"+f+"_RECALL",
+                                             WINDOW_SIZES,
+                                             dataset.ACTIVITIY_NAMES)
+                    for f in features]
+    #Precision
+    precision_files = [out.Results_Per_Activity(sys.argv[2]+"_"+f+"_PRECISON",
+                                                WINDOW_SIZES,
+                                                dataset.ACTIVITIY_NAMES)
+                       for f in features]
+    #Fscore
+    fscore_files = [out.Results_Per_Activity(sys.argv[2]+"_"+f+"_ACCURACY",
+                                            WINDOW_SIZES,
+                                            dataset.ACTIVITIY_NAMES)
+                    for f in features]
     
+    #Propr probabilitites: not always!
+    prior_needed = "--prior" in sys.argv
+    prior_file = latex_accuracy = latex_fscore = None
+    if prior_needed:
+        prior_file = out.Prior_Probabilities(sys.argv[2],
+                                            len(dataset.ACTIVITIY_NAMES))
+
+    #Latex files -> Only for ALL
+    if sys.argv[1] == "ALL":
+        latex_accuracy = out.Latex_Table(len(WINDOW_SIZES)+1, placeholder_name)
+        latex_fscore = out.Latex_Table(len(WINDOW_SIZES)+1, placeholder_name)
+    
+
     #Try different windows
     for window_size in WINDOW_SIZES:
         #We segment the data
@@ -135,7 +150,7 @@ if __name__ == "__main__":
                                                  window_size)
 
         #We build an Mutual Information Extended matrix
-        emi_matrix = mi.obtain_mutual_information_ext_matrix(training_segmented_data,
+        emi_matrix = fe.obtain_mutual_information_ext_matrix(training_segmented_data,
                                                              dataset.NUM_EVENTS)
 
         #We measure the prior probabilities if needed:
@@ -145,37 +160,33 @@ if __name__ == "__main__":
             prior_file.store_result(priors)
         
         #Try different features
-        for ff in range(len(features)):
+        for ff, feature in enumerate(features):
 
             #Configuring the features
             prev_class_pos = -1
-            if features[ff] == "BASE":
-                feature_vector = ["SIMPLE COUNT SENSOR"]
-            elif features[ff] == "PWA":
-                feature_vector = ["PREV CLASS LAST EVENT",
-                                  "SIMPLE COUNT SENSOR"]
-                #PREV CLASS LAST EVENT is discrete, so we have to set it up as one
+            if feature == "BASE":
+                feature_vector = [fe.Features.SIMPLE_COUNT]
+            elif feature == "PWA":
+                feature_vector = [fe.Features.PWA, fe.Features.SIMPLE_COUNT]
                 prev_class_pos = fe.NUMBER_BASE_FEATURES
-            elif features[ff] == "TD":
-                feature_vector = ["TIME DEPEDENCY COUNT SENSOR"]
-            elif features[ff] == "EMI":
-                feature_vector = ["MATRIX COUNT SENSOR"]
-            elif features[ff] == "PWA+TD":
-                feature_vector = ["PREV CLASS LAST EVENT",
-                                "TIME DEPEDENCY COUNT SENSOR"]
+            elif feature == "TD":
+                feature_vector = [fe.Features.TD_COUNT]
+            elif feature == "EMI":
+                feature_vector = [fe.Features.MATRIX_COUNT]
+            elif feature == "PWA+TD":
+                feature_vector = [fe.Features.PWA, fe.Features.TD_COUNT]
                 prev_class_pos = fe.NUMBER_BASE_FEATURES
-            elif features[ff] == "PWA+EMI":
-                feature_vector = ["PREV CLASS LAST EVENT",
-                                  "MATRIX COUNT SENSOR"]
+            elif feature == "PWA+EMI":
+                feature_vector = [fe.Features.PWA, fe.Features.MATRIX_COUNT]
                 prev_class_pos = fe.NUMBER_BASE_FEATURES
-            elif features[ff] == "TD+EMI":
-                feature_vector = ["TIME DEPEDENCY MATRIX COUNT SENSOR"]
-            elif features[ff] == "PWA+TD+EMI":
-                feature_vector = ["PREV CLASS LAST EVENT",
-                                  "TIME DEPEDENCY MATRIX COUNT SENSOR"]
+            elif feature == "TD+EMI":
+                feature_vector = [fe.Features.MATRIX_TD_COUNT]
+            elif feature == "PWA+TD+EMI":
+                feature_vector = [fe.Features.PWA,
+                                  fe.Features.MATRIX_TD_COUNT]
                 prev_class_pos = fe.NUMBER_BASE_FEATURES
             else:
-                print(features[ff])
+                print(feature)
                 msg_error("Feature not identified (this issue should've " +
                         "been checked by now)...")
             
@@ -194,38 +205,72 @@ if __name__ == "__main__":
             testing_data, testing_class = temp_data
 
             #We run the classifer
-            classifier = GaussianNB()
+            classifier = GaussianNB(var_smoothing=1e-7)
             classifier.fit(training_data, training_class)
 
-            #We evaluate and store the result of the Accuracy file:
-            obtained_testing_class = results_per_class_file[ff].evaluate_and_store(classifier,
-                                                                                   training_data,
-                                                                                   training_class,
-                                                                                   prev_class_pos,
-                                                                                   len(dataset.ACTIVITIY_NAMES))
+            #We extract the predictions:
+            prediction_classes = ev.obtain_classifier_prediction(len(dataset.ACTIVITIY_NAMES),
+                                                                 testing_data,
+                                                                 prev_class_pos,
+                                                                 classifier.predict,
+                                                                 classifier.predict_proba)
+            
+            #We build a confusion matrix to measure the quality of results
+            confusion_matrix = ev.obtain_confusion_matrix(len(dataset.ACTIVITIY_NAMES),
+                                                          testing_class,
+                                                          prediction_classes)
+            
+            
+            #We evaluate and store the result of the accuracy, precision
+            #and recall
+            accuracy = ev.obtain_accuracy(confusion_matrix)
+            precision = ev.obtain_precision(confusion_matrix)
+            recall = ev.obtain_recall(confusion_matrix)
+            fscore = ev.obtain_fscore(precision[1:], recall[1:])
+
+            accuracy_files[ff].insert_data(window_size, accuracy)
+            precision_files[ff].store(precision)
+            recall_files[ff].store(recall)
+            fscore_files[ff].store(fscore)
 
             #We add the result to the confusion matrix file:
             header = "Window Size: " + str(window_size)
-            header += "; Feature " + features[ff]
-            confusion_matrix_file.add_confusion_matrix(header, testing_class,
-                                                       obtained_testing_class)
+            header += "; Feature " + feature
+            confusion_matrix_file.add_confusion_matrix(header,
+                                                       confusion_matrix)
+            
+            #Printing progress
+            counter.checkmarck()
+
         
         #End classifier loop
     
     #End window loop
     
-    print("Priting results:")
+    print("Printing results...", sys.argv[3])
     #Print prior probabilitites (if needed)
     if prior_needed:
         prior_file.print_results()
-    #Print accuracy files
+    #Print statisics files
     for ff in range(len(features)):
-        results_per_class_file[ff].print_results()
+        #Accuracy
+        accuracy_files[ff].print_results()
+        #Precision
+        precision_files[ff].print_results()
+        #Recall
+        recall_files[ff].print_results()
+        #Fscore
+        fscore_files[ff].print_results()
+
     #closing confusion matrix file
     confusion_matrix_file.close()
-    #Printing latex table
+    #Printing Latex files
     if sys.argv[1] == "ALL":
+        #Preparing the latex tables
         for ff in range(len(features)):
-            latex_file.store_result(results_per_class_file[ff].return_global())
-        latex_file.print_results(sys.argv[2])
+            latex_accuracy.store_result(accuracy_files[ff].obtain_results())
+            latex_fscore.store_result(fscore_files[ff].return_global())
+        #Priting the latex files
+        latex_accuracy.print_results(sys.argv[2] + "_ACCURACY")
+        latex_fscore.print_results(sys.argv[2] + "_FSCORE")
         
