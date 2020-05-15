@@ -299,12 +299,15 @@ class Latex_Table:
         else:
             msg_error("Table already full")
 
-    def print_results(self, file_name:str, num_decimal:int = 4):
+    def print_results(self, file_name:str, num_decimal:int = 4,
+                      average_list_print:bool = False):
         """
         Prints the results stored in the object
 
         :param file_name str: the name of the file to be stored
         :param num_decimal int: number of decimals to print
+        :param average_list_print: indicates if the total averages are printed
+        as a separate list. Used to generate graphs in matplotlib
         """
         #We ouput an error if the file isn't full yet
         if self.index != self.num_rows:
@@ -340,6 +343,14 @@ class Latex_Table:
         
         #We print the horizontal line diving this dataset
         print("\hline \cline{1-8}", file=table_file)
+
+
+        if average_list_print:
+            print("\n\n", file=table_file)
+            print([float(_round_decimal(elem, num_decimal))
+                   for elem in self.data[:, -1]],
+                  file=table_file)
+
 
         #We close the file:
         table_file.close()

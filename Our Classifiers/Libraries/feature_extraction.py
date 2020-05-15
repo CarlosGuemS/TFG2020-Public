@@ -72,34 +72,43 @@ def _obtain_window_seconds_elapsed(window: list):
     difference = last_time_delta - first_time_delta
     return difference.total_seconds()
 
-def _obtain_simple_count_sensors(window:list, sensor:int):
+def _obtain_simple_count_sensors(window:list, num_sensor:int):
     """
     Given a window, counts the number of times the given sensor appears in it
 
     :param window list: the window
-    :param sensor int: the sensor to count
-    :returns: the number of times the given sensor appears in the window
-    :rtype: int
+    :param num_sensor int: the number of sensors to count
+    :returns: list of the number of times the given sensor appears in the window
+    :rtype: list
     """
-    return sum(1 for event in window if event[1]==sensor)
+    #We create a list, where each position represents a sensor
+    sensor_count = [0] * num_sensor
+    #We count each sensor appeareance
+    for event in window:
+        sensor_count[event[1]] += 1
+    return sensor_count
 
-def _obtain_time_dependency_count_sensors(window:list, sensor:int):
+def _obtain_time_dependency_count_sensors(window:list, num_sensor:int):
     """
     Given a window, counts the number of times the given sensor appears in it.
     Includes the use of time dependency
 
     :param window list: the window
-    :param sensor int: the sensor to count
+    :param num_sensor int: the number of sensors to count
     :returns: the number of times the given sensor appears in the window
-    :rtype: int
+    :rtype: list
     """
     #Reference time
     ref_time = window[-1][0]
     #Constant used, exact value obtained from a paper
     td_constant = -2**-3
 
-    return sum(exp(td_constant* (ref_time - event[0]).total_seconds()) 
-               for event in window if event[1]==sensor)
+    #We create a list, where each position represents a sensor
+    sensor_count = [0] * num_sensor
+    #We count each sensor appeareance
+    for event in window:
+        sensor_count[event[1]] += exp(td_constant*(ref_time - event[0]).total_seconds())
+    return sensor_count
 
 ##Class extraction features
 def _obtain_class(window:list):
@@ -145,9 +154,7 @@ def obtain_feature_vector(features:list, window:list, classes:list,
         #Simple Count
         if feature == Features.SIMPLE_COUNT:
             #We have to explore every posible sensor
-            for sensor in range(num_sensor):
-                feature_vector.append(_obtain_simple_count_sensors(window,
-                                                                   sensor))
+            feature_vector += _obtain_simple_count_sensors(window, num_sensor)
         
         #Previous Window Activity 
         elif feature == Features.PWA:
@@ -164,27 +171,28 @@ def obtain_feature_vector(features:list, window:list, classes:list,
             if mi is None:
                 raise ValueError("No Mutual Information matrix is defined!")
             #We have to explore every posible sensor
-            for sensor in range(num_sensor):
-                count = _obtain_simple_count_sensors(window, sensor)
-                #We multiply the count by the coefficient in the MI matrix
-                feature_vector.append(count * mi[sensor, window[-1][1]])
+            count = _obtain_simple_count_sensors(window, num_sensor)
+            #We multiply the count by the coefficient in the MI matrix
+            mi_count = count * mi[:, window[-1][1]]
+            #We append the results 
+            feature_vector += list(mi_count) 
         
         #Mutual Information matrix + Time dependency count
         elif feature == Features.MATRIX_TD_COUNT:
             if mi is None:
                 raise ValueError("No Mutual Information matrix is defined!")
             #We have to explore every posible sensor
-            for sensor in range(num_sensor):
-                count = _obtain_time_dependency_count_sensors(window, sensor)
-                #We multiply the count by the coefficient in the MI matrix
-                feature_vector.append(count * mi[sensor, window[-1][1]])
+            count = _obtain_time_dependency_count_sensors(window, num_sensor)
+            #We multiply the count by the coefficient in the MI matrix
+            mi_count = count * mi[:, window[-1][1]]
+            #We append the results 
+            feature_vector += list(mi_count)
         
         #Time dependency count
         elif feature == Features.TD_COUNT:
             #We have to explore every posible sensor
-            for sensor in range(num_sensor):
-                temp = _obtain_time_dependency_count_sensors(window, sensor)
-                feature_vector.append(temp)
+            feature_vector += _obtain_time_dependency_count_sensors(window,
+                                                                    num_sensor)
             
         else:
             #Unrecognized sensor

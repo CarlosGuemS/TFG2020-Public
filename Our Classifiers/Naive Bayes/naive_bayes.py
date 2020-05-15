@@ -23,7 +23,7 @@ from general import msg_error
 
 #Constants
 #WINDOW_SIZES = [5, 12, 19]
-WINDOW_SIZES = [5, 12, 19, 26, 34]
+WINDOW_SIZES = [5, 12, 19, 26, 33]
 
 ##STR that indicates usage
 USAGE = "Usage: naive_bayes <feature_mode> <output_name> <data> [--prior]"
@@ -272,5 +272,6 @@ if __name__ == "__main__":
             latex_fscore.store_result(fscore_files[ff].return_global())
         #Priting the latex files
         latex_accuracy.print_results(sys.argv[2] + "_ACCURACY")
-        latex_fscore.print_results(sys.argv[2] + "_FSCORE")
+        latex_fscore.print_results(sys.argv[2] + "_FSCORE",
+                                   average_list_print= True)
         
