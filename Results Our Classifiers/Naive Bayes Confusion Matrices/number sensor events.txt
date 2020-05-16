@@ -1,0 +1,40 @@
+KYOTO 1
+Activity, Nº events training, Nº events testing
+Make a phone call	982	55
+Wash hands	469	12
+Cook	2067	105
+Eat	844	38
+Clean	1489	118
+
+KYOTO 2
+Activity, Nº events training, Nº events testing
+Make a phone call	991	28
+Wash hands	434	24
+Cook	2204	134
+Eat	750	20
+Clean	553	21
+
+KYOTO 3
+Activity, Nº events training, Nº events testing
+Fill medication dispenser	511	39
+Wash DVD	886	90
+Water plants	913	62
+Answer the phone	345	58
+Prepare birthday card	738	28
+Prepare soup	1006	60
+Clean	1569	42
+Choose outfit	471	48
+
+Aruba
+Activity, Nº events training, Nº events testing
+Meal_Preparation	230939	61219
+Relax	307588	67155
+Eating	14296	2355
+Work	13795	3842
+Sleeping	56503	7289
+Wash_Dishes	10065	529
+Bed_to_Toilet	1272	211
+Enter_Home	1522	519
+Leave_Home	1528	426
+Housekeeping	10938	0
+Respirate	408	163
