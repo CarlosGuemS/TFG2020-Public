@@ -23,6 +23,7 @@ t5: Clean
 ACTIVITIES = [".t1", ".t2", ".t3", ".t4", ".t5"]
 ACTIVITIY_NAMES = ["Make a phone call", "Wash hands", "Cook", "Eat",
                    "Clean"]
+NUM_ACTIVITIES = 5
 
 ##Sensor Data
 NUM_EVENTS = 39
@@ -139,13 +140,33 @@ if __name__ == "__main__":
         print(processed_events[0:10])
 
 #Accesing the intermediate data
-def obtaining_data(fold:int = 1, *args):
+def obtaining_data():
     """
     Obtains and aggregates the data obtained from the Kyoto dataset.
     
+    :returns: the list of lists with all the datadata
+    :rtype: list
+    """
+    aggregated_data = []
+    for participant in PARTICIPANTS:
+        complete_path = os.path.join(FORMATED_DATA_PATH,
+                                     participant+dp.FILE_EXT_FEATURES)
+        complete_path = os.path.normpath(complete_path)
+        temp_file = open(complete_path, 'rb')
+        with open(complete_path, 'rb') as temp_file:
+            temp_data = pickle.load(temp_file)
+            aggregated_data.append(temp_data)
+
+    return aggregated_data
+
+def obtaining_data_continuos(fold:int = 1, *args):
+    """
+    Obtains and aggregates the data obtained from the Kyoto dataset.
+    The data is contained in a continuos manner
+    
     :param fold int: modify the fold
     :param args list: other parameters to be ignored
-    :returns: the list of training data and of test data
+    :returns: the list of lists of training data and of test data
     :rtype: list, list
     """
 
@@ -162,10 +183,9 @@ def obtaining_data(fold:int = 1, *args):
         complete_path = os.path.join(FORMATED_DATA_PATH,
                                      participant+dp.FILE_EXT_FEATURES)
         complete_path = os.path.normpath(complete_path)
-        temp_file = open(complete_path, 'rb')
-        temp_data = pickle.load(temp_file)
-        temp_file.close()
-        aggregated_training_data.append(temp_data)
+        with open(complete_path, 'rb') as temp_file:
+            temp_data = pickle.load(temp_file)
+            aggregated_training_data.append(temp_data)
 
     #Obtaining test data
     aggregated_test_data = []
@@ -173,9 +193,8 @@ def obtaining_data(fold:int = 1, *args):
         complete_path = os.path.join(FORMATED_DATA_PATH,
                                      participant+dp.FILE_EXT_FEATURES)
         complete_path = os.path.normpath(complete_path)
-        temp_file = open(complete_path, 'rb')
-        temp_data = pickle.load(temp_file)
-        temp_file.close()
-        aggregated_test_data.append(temp_data)
+        with open(complete_path, 'rb') as temp_file:
+            temp_data = pickle.load(temp_file)
+            aggregated_test_data.append(temp_data)
     
     return aggregated_training_data, aggregated_test_data

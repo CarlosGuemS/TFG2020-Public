@@ -14,6 +14,7 @@ FILE_NAME = "aruba"
 ACTIVITIY_NAMES = ["Meal_Preparation", "Relax", "Eating", "Work", "Sleeping",
                    "Wash_Dishes", "Bed_to_Toilet", "Enter_Home", "Leave_Home",
                    "Housekeeping", "Respirate"]
+NUM_ACTIVITIES = 11
 
 ##Sensor Data
 NUM_EVENTS = 42
@@ -121,13 +122,31 @@ if __name__ == "__main__":
     print(formatted_data[:10])
 
 #Accesing the intermediate data
+def obtaining_data():
+    """
+    Obtains and aggregates the data obtained from the ARUBA dataset.
+    
+    :returns: the list of lits containing the data
+    :rtype: list
+    """
+
+    #We send all as training data
+    complete_path = os.path.join(FORMATED_DATA_PATH,
+                                 FILE_NAME +dp.FILE_EXT_FEATURES)
+    complete_path = os.path.normpath(complete_path)
+    with open(complete_path, 'rb') as temp_file:
+        temp_data = pickle.load(temp_file)
+    #As to mantain consistency with the other datasets, we must return data
+    #as a list of lists
+    return [temp_data]
+
 def invalid_date(month, day):
     print("Invalid date", "month =", month, "day =", day, file=sys.stderr)
     sys.exit(-1)
-def obtaining_data(month:int = 5, day:int = 1, *args):
+def obtaining_data_continuos(month:int = 5, day:int = 1, *args):
     """
-    Obtains and aggregates the data obtained from the ARUBA dataset. The test
-    data starts at the date indicated
+    Obtains and aggregates the data obtained from the ARUBA dataset. Data is obtained
+    continously. The test data starts at the date indicated
     
     :param month int: month of the date indicating where the test data starts
     :param day int: day of the date indicating where the test data starts

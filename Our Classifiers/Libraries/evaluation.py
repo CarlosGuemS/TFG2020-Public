@@ -5,142 +5,71 @@ import numpy as np
 from general import msg_error
 
 def obtain_classifier_prediction(num_classes:int, test_data,
-                                 position_prev_class:int, predict_function,
-                                 predict_proba_function):
+                                 predict_function, scaler = None,
+                                 normalize_function = None):
     """
     Returns the accuracy score of a scikit-learn classifier (originally
-    designed for naive bayes) for the given samples when using the
-    prev_class_activity feature.
+    designed for naive bayes) for the given samples.
 
     :param num_classes list: number of classes of the classifier
     :param test_data numpy.array: test partition samples
     :param test_class numpy.array: test_data's classes
-    :param position_prev_class int: position of position_prev_class in the
-    feature vector
     :param predict_function function: function that makes the prediction by
     the trained classifer
-    :param predict_proba_function function: function that obtains the
-    estimated posterior of each class by the trained classifer
-    :returns: the accuracy score and the predicted activities
-    :rtype: float, numpy.array
-    """
-
-    if position_prev_class == -1:
-        #If there's no previous classm we can do the predictions using the innate method
-        return np.array(predict_function(test_data), dtype=np.int8)
-
-    else:
-        #We create a copy of the test data
-        test_data_copy = np.copy(test_data)
-        #We also create a vector where to store the class predictions
-        test_prediction = np.zeros(shape=test_data.shape[0], dtype=np.int32)
-        #We define the first possible predicted class:
-        predicted_class_vector = np.zeros(num_classes) /num_classes
-        for i in range(test_data.shape[0]):
-            #We modify the previous activity
-            test_data_copy[i, position_prev_class : position_prev_class + num_classes] = predicted_class_vector
-
-            #We predict the next class
-            next_sample = np.resize(test_data_copy[i], (1, test_data_copy.shape[1]))
-            predicted_class_vector = predict_proba_function(next_sample)
-            test_prediction[i] = predicted_class_vector.argmax()
-        
-        #Return predictions
-        return test_prediction
-
-def obtain_classifier_prediction_svm(num_classes:int, test_data,
-                                     position_prev_class:int,
-                                     predict_function, predict_proba_function,
-                                     scaler, normalize_function):
-    """
-    Returns the accuracy score of a scikit-learn classifier (originally
-    designed for naive bayes) for the given samples when using the
-    prev_class_activity feature.
-
-    :param num_classes list: number of classes of the classifier
-    :param test_data numpy.array: test partition samples
-    :param test_class numpy.array: test_data's classes
-    :param position_prev_class int: position of position_prev_class in the
-    feature vector
-    :param predict_function function: function that makes the prediction by
-    the trained classifer
-    :param predict_proba_function function: function that obtains the
-    estimated posterior of each class by the trained classifer
     :param scaler sklearn.preprocessing.Scaler: trained scaler
     :param normalize_function function: function that normalizes the data
     :returns: the accuracy score and the predicted activities
     :rtype: float, numpy.array
     """
 
-    if position_prev_class == -1:
-        # If there's no previous class we can do the predictions using the
-        # innate method
-        # If we have a normalization function we apply it now
-        if scaler:
-            test_data = scaler.transform(test_data)
-        if normalize_function:
-            normalize_function(test_data)
-        return np.array(predict_function(test_data), dtype=np.int8)
+    if scaler:
+        test_data = scaler.transform(test_data)
+    if normalize_function:
+        normalize_function(test_data)
+    return np.array(predict_function(test_data), dtype=np.int8)
 
-    else:
-        #We create a copy of the test data
-        test_data_copy = np.copy(test_data)
-        #We also create a vector where to store the class predictions
-        test_prediction = np.zeros(shape=test_data.shape[0], dtype=np.int32)
-        #We define the first possible predicted class:
-        predicted_class_vector = np.zeros(num_classes) /num_classes
-        for i in range(test_data.shape[0]):
-            #We modify the previous activity
-            test_data_copy[i, position_prev_class : position_prev_class + num_classes] = predicted_class_vector
-
-            #We predict the next class
-            next_sample = np.resize(test_data_copy[i], (1, test_data_copy.shape[1]))
-            #If needed we normalize the function
-            if scaler:
-                next_sample = scaler.transform(next_sample)
-            if normalize_function:
-                normalize_function(next_sample)
-            predicted_class_vector = predict_proba_function(next_sample)
-            test_prediction[i] = predict_function(next_sample)[0]
-        
-        #Return predictions
-        return test_prediction
-
-def obtain_prior_probabilitites(test_samples, num_activities:int):
+def obtain_prior_probabilitites(sample_classes, num_activities:int):
     """
     Obtain the prior probabilitites of the training samples.
     The classes must be normalized (range from 0 to C-1, where C is the number
     of classes)
 
-    :param test_samples numpy.array: training samples
+    :param sample_classes numpy.array: training classes
     :param num_activitites int: number of activities
     """
     prior_probs = np.zeros(shape=(num_activities))
-    test_classes = test_samples[:, -1]
-    for i in test_classes:
+    for i in sample_classes:
         prior_probs[i] = prior_probs[i] + 1
-    return prior_probs / test_classes.shape[0]
+    return prior_probs / sample_classes.size
 
-def obtain_confusion_matrix(number_activities:int, real_class,
-                            obtained_class):
+def obtain_empty_confusion_matrix(number_activities:int):
     """
-    Obtain a (not normalized) confusion matrix.
+    Creates an empty confusion matrix
 
-    :param number_activities int: the number of activities
-    :param real_class numpy.array: the real classes
-    :param obtained_class numpy.array: the obtained class
-    :returns: the confusion matrix, and a variant without the diagonal
+    :returns: the new confusion matrix
     :rtype: numpy.array
     """
-    #Create the matrix
-    confusion_matrix = np.zeros(shape=(number_activities, number_activities),
+    return np.zeros((number_activities, number_activities), dtype=np.float64)
+
+def obtain_confusion_matrix(number_activities:int, real_class, obtained_class):
+    """
+    Obtains an confusion matrix from the given data
+
+    :param number_activities int: number of activities
+    :param real_class numpy.array: the real classes
+    :param obtained_class numpy.array: the obtained class
+    :returns: the new confusion matrix
+    :rtype: numpy.array
+    """
+    #We create the matrix
+    confusion_matrix = np.zeros((number_activities, number_activities),
                                 dtype=np.float64)
-    #Count the number of hits
+    #We fill in the values
     for real_act, obtained_act in zip(real_class, obtained_class):
         confusion_matrix[real_act, obtained_act] += 1
-    
+    #We return the result
     return confusion_matrix
-
+    
 def obtain_accuracy(confusion_matrix):
     """
     From a confusion matrix, obtian the accuracy

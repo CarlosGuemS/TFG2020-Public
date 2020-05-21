@@ -2,6 +2,8 @@ import datetime, sys
 import numpy as np
 from math import exp
 from itertools import permutations
+import random
+random.seed(1234)
 
 ##Class that represents all possible features
 #Same function as tags in C language
@@ -274,7 +276,7 @@ def obtain_mutual_information_ext_matrix(windows: list, number_of_sensors:int):
         #We obtain all the possible combinations of sensors within the window
         sensors_in_window = set(map(lambda event: event[1], window))
         #We analyze all possible permutations
-        for sensor1, sensor2 in permutations(sensors_in_window, 2):
+        for sensor1, sensor2 in permutations(sensors_in_window, 2): 
             mi[sensor1, sensor2] += 1
         #We must also consider sensor activating with themselves
         for sensor in sensors_in_window:
@@ -282,5 +284,46 @@ def obtain_mutual_information_ext_matrix(windows: list, number_of_sensors:int):
     
     #Normalization
     mi = mi / len(windows)
-
     return mi
+
+##Limit of training samples
+def limit_training_samples(samples, samples_classes, num_classes:int,
+                           max_samples_total:int, max_samples_class:int):
+    """
+    Returns a set of sample and classes limited to given number of samples.
+    If there are more samples than can be used they are chosen randomply.
+
+    :param samples numpy.array: the samples used
+    :param samples_classes: the classes of the samples. They must correspond
+    to the samples in 'samples'
+    :param num_classes int: number of possible classes in the data
+    :param max_samples_total int: maximum number of samples
+    :param max_samples_class int: maximum number of samples per class
+    """
+
+     #We check we don't have too many samples:
+    if samples_classes.size > max_samples_total:
+        #We need to limit the amount of samples for SVM to 1000
+        limited_training_data = np.empty((0,samples.shape[1]))
+        limited_training_class = np.empty(0)
+        for c in range(num_classes):
+            #Indices of class c
+            class_indices = np.where(samples_classes == c)[0]
+            #We check if there are more than MAX_SAMPLES_PER_CLASS
+            if class_indices.size > max_samples_class:
+                #If there are more than 100 we must limit the number
+                # of samples to 1000
+                class_indices = random.sample(list(class_indices),
+                                              max_samples_class)
+            #We concatenate the selected samples to the activity set
+            limited_training_data = np.concatenate((limited_training_data,
+                                                    samples[class_indices]),
+                                                   0)
+            limited_training_class = np.concatenate((limited_training_class,
+                                                     samples_classes[class_indices]),
+                                                    0)
+        #We return the results
+        return limited_training_data, limited_training_class
+    else:
+        #We don't exceed the maxium
+        return samples, samples_classes

@@ -162,61 +162,6 @@ class Results_Per_Activity:
         
         return self.data[:, 0]
 
-#Prior Probabilities
-class Prior_Probabilities:
-    """
-    Creates a file storing the prior probabilities
-
-    :param file_name str: name of the file where to store the probabilitites
-    :param num_activities int: number of columns
-    :param header list: header for the table
-    """
-    def __init__(self, file_name:str, num_activities:int,
-                 header:list = [5, 12, 19]):
-        self.data = np.zeros(shape=(len(header), num_activities))
-        self.index = 0
-        #We store other values
-        self.header = header
-        self.max_index = len(header)
-        self.values_size = num_activities
-        self.file_name = file_name
-    
-    def store_result(self, values:list):
-        """
-        Add the values to the array, is posible.
-
-        :param values list: list of values to store
-        """
-        if len(values) != self.values_size:
-            msg_error("Values are not the correct error")
-        elif self.index < self.max_index:
-            self.data[self.index, :] = values
-            self.index += 1
-        else:
-            msg_error("Table already full")
-    
-    def print_results(self):
-        """
-        Prints the results stored in the object
-
-        """
-        #We print a warning if the table isn't full yet
-        if self.index < self.max_index:
-            print("Warning: Table of prior probabilities not full",
-                  file=sys.stderr)
-        
-        table_file = open(self.file_name + "_prior.csv", 'w')
-        for row in range(self.values_size):
-            #First we print the header of the row
-            print(self.header[row], end=", ", file = table_file)
-
-            for value in self.data[row, :]:
-                print(value, end=", ", file = table_file)
-
-            #Close row
-            print(self.data[row, -1], file = table_file)
-        table_file.close()
-
 #Confusion matrix
 class Confusion_Matrix:
     """
@@ -315,17 +260,11 @@ class Latex_Table:
     """
 
     #We lay out the constants: headers and similar
-    row_headers = ["\multirow{9}{*}{\PLACEHOLDER} & Base",
-                  "\cline{2-8} & Base + PWA", "\cline{2-8} & Base + TD",
-                  "\cline{2-8} & Base + EMI", "\cline{2-8} & Base + PWA + TD",
-                  "\cline{2-8} & Base + PWA + EMI", "\cline{2-8} & Base + TD + EMI",
-                  "\cline{2-8} & Base + PWA + TD"]
+    row_headers = ["\multirow{4}{*}{\PLACEHOLDER} & Base",
+                   "\cline{2-8} & Base + TD", "\cline{2-8} & Base + EMI",
+                   "\cline{2-8} & Base + TD + EMI"]
     
-    intermediate_rows = ("& + EMI  &  &  &  &  &  & \\\\",)
-
-    ind_rows_first_part = (0, 7)
-    ind_rows_second_part = (4, 8)
-    num_rows = 8
+    num_rows = 4
 
     def __init__(self, entries_per_row:int, dataset_name:str):
         #Array to store the data
@@ -335,7 +274,9 @@ class Latex_Table:
         #Number of entries per row
         self.entries_per_row = entries_per_row
         #We change the dataset name
-        self.row_headers[0] = self.row_headers[0].replace("PLACEHOLDER", dataset_name, 1)
+        self.row_headers[0] = self.row_headers[0].replace("PLACEHOLDER",
+                                                          dataset_name,
+                                                          1)
 
     def store_result(self, values:list):
         """
@@ -369,8 +310,8 @@ class Latex_Table:
         #We open the file:
         table_file = open(file_name + ".table", 'w')
         
-        #We print the first set of rows
-        for ii in range(*self.ind_rows_first_part):
+        #We print the row
+        for ii in range(self.num_rows):
             #Row header
             print(self.row_headers[ii], end='', file=table_file)
             #Row content
@@ -380,24 +321,10 @@ class Latex_Table:
             #Row end
             print(' \\\\', file=table_file)
         
-        #We print the last row
-        #Row header
-        print(self.row_headers[7], end='', file=table_file)
-        #Row content
-        for elem in self.data[7, :]:
-            val_to_print = _round_decimal(elem, num_decimal)
-            print(" & \multirow{2}{*}{", val_to_print, "}", sep='',
-                    end='', file=table_file)
-        #Row end
-        print(' \\\\', file=table_file)
-        #Print intermediate line
-        print(self.intermediate_rows[0], file=table_file)
-    
-        
         #We print the horizontal line diving this dataset
         print("\hline \cline{1-8}", file=table_file)
 
-
+        #We check if we need to print the average
         if average_list_print:
             print("\n\n", file=table_file)
             print([float(_round_decimal(elem, num_decimal))

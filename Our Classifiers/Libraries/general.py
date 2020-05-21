@@ -7,6 +7,9 @@ import Kyoto1, Kyoto2, Kyoto3, Aruba
 #WINDOW_SIZES = [5, 12, 19]
 WINDOW_SIZES = [5, 12, 19, 26, 33]
 
+##List of possible feature configurations
+POSIBLE_FEATURE_CONFIG = ["BASE", "TD", "EMI", "TD+EMI"] #There's also ALL
+
 def msg_error(msg:str):
     """
     Prints an error in the stderr output and ends the execution prematurely
