@@ -1,6 +1,9 @@
 import sys
 
 import numpy as np
+import matplotlib.pyplot as plt
+
+from itertools import product
 
 from general import msg_error
 
@@ -232,24 +235,74 @@ class Confusion_Matrix:
         """
         self.file.close()
     
-    def add_confusion_matrix(self, header:str, confusion_matrix):
+    def add_confusion_matrix(self, header:str, confusion_matrix,
+                             normalize:bool = False):
         """
         Stores a given confusion matrix in the file
 
         :param header str: header for the confusion matrix
         :param confusion_matrix: a, not normalized, confusion matrix
+        :param normalize bool: indicates if the matrix is to be normalized
+        (the sum rows equals to 1)
         """
         #Print the header
         print(header, file=self.file)
         
         #Obtain the averages (normalizes it)
-        for ii in range(self.number_activities):
-            total = np.sum(confusion_matrix[ii, :])
-            total = total if total else 1
-            confusion_matrix[ii, :] = confusion_matrix[ii,:] / total
+        if normalize:
+            for ii in range(self.number_activities):
+                total = np.sum(confusion_matrix[ii, :])
+                total = total if total else 1
+                confusion_matrix[ii, :] = confusion_matrix[ii,:] / total
         
         #Print the matrix
         print(confusion_matrix, end = "\n\n\n", file = self.file)
+    
+    def gen_confusion_matrix_heatmap(self, file_name:str, confusion_matrix,
+                                     classes:list, normalize:bool = False):
+        """
+        Generates a heatmap of the given confusion matrix in a file with
+        the given name in the current directory
+
+        :param file_name str: the name of the file to store
+        :param confusion_matrix numpy.array: the confusion matrix
+        :param classes list list: list with the name of the classes
+        :param normalize bool: indicates if the matrix is to be normalized
+        (the sum rows equals to 1)
+        """
+
+        #First we normalize (if needed):
+        if normalize:
+            for ii in range(self.number_activities):
+                total = np.sum(confusion_matrix[ii, :])
+                total = total if total else 1
+                confusion_matrix[ii, :] = confusion_matrix[ii,:] / total
+
+        #We create the figure
+        fig, ax = plt.subplots(figsize = (8, 8))
+        im = ax.imshow(confusion_matrix, cmap="magma")
+
+        #We plot the axes
+        num_ticks = np.arange(len(classes))
+        ax.set_xticks(num_ticks); ax.set_yticks(num_ticks)
+        ax.set_xticklabels(classes); ax.set_yticklabels(classes)
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                 rotation_mode="anchor")
+        
+        #We place the text within the matrix
+        textcolors=("white", "black")
+        threshold = im.norm(confusion_matrix.max()) / 2.0
+        textsize = "large" if len(classes) > 8 else "x-large"
+        for i, j in product(num_ticks, repeat=2):
+            color = textcolors[int(im.norm(confusion_matrix[i, j]) > threshold)]
+            ax.text(j, i, _round_decimal(confusion_matrix[i, j], 3),
+                    weight="semibold", fontsize=textsize, ha="center",
+                    va="center", color=color)
+        
+        #Save file
+        fig.tight_layout()
+        plt.savefig(file_name + ".pdf", format='pdf')
+
 
 #Latex accuracy table
 class Latex_Table:

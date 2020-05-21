@@ -1,9 +1,12 @@
 import sys, re
 import numpy as np
 from os import path
+import random
+random.seed(1)
 
 #Scikit learn
-from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+from sklearn.preprocessing import normalize, StandardScaler
 
 #Preprocessing
 sys.path.append('../Libraries')
@@ -21,12 +24,19 @@ import Kyoto1, Kyoto2, Kyoto3, Aruba
 from general import msg_error, load_dataset, WINDOW_SIZES, Counter
 
 
+#Constants
+SVM_C = 20
+SVM_GAMMA = 0.3
+MAX_SAMPLES_TOTAL = 20000
+MAX_SAMPLES_PER_CLASS = 1200
+
 ##STR that indicates usage
-USAGE = "Usage: naive_bayes <feature_mode> <output_name> <data> [--prior]"
+USAGE = "Usage: svm <feature_mode> <output_name> <data> [--prior]"
 
 ##List of possible feature configurations
 POSIBLE_FEATURE_CONFIG = ["BASE", "PWA", "TD", "EMI", "PWA+TD", "PWA+EMI",
                           "TD+EMI", "PWA+TD+EMI"] #There's also ALL
+
 
 """
 Format of the input configuration: additional features. Possible options:
@@ -62,7 +72,7 @@ if __name__ == "__main__":
         #Unkown feature
         msg_error("Unkown feature: " + sys.argv[1])
     counter = Counter(len(WINDOW_SIZES) * (1 + (len(POSIBLE_FEATURE_CONFIG)-1)*(sys.argv[1] == 'ALL')),
-                      sys.argv[3])
+                      placeholder_name)
     
     
     #Preparing the output files:
@@ -123,9 +133,9 @@ if __name__ == "__main__":
         
         #Try different features
         for ff, feature in enumerate(features):
-
             #Configuring the features
-            prev_class_pos = -1
+            #We must also check if we need the svm to calculate probabilitites
+            prev_class_pos = -1;
             if feature == "BASE":
                 feature_vector = [fe.Features.SIMPLE_COUNT]
             elif feature == "PWA":
@@ -166,16 +176,51 @@ if __name__ == "__main__":
                                                           emi_matrix)
             testing_data, testing_class = temp_data
 
+            #We check we don't have too many samples:
+            if training_class.size > MAX_SAMPLES_TOTAL:
+                #We need to limit the amount of samples for SVM to 1000
+                limited_training_data = np.empty((0,training_data.shape[1]))
+                limited_training_class = np.empty(0)
+                for c in range(len(dataset.ACTIVITIY_NAMES)):
+                    #Indices of class c
+                    class_indices = np.where(training_class == c)[0]
+                    #We check if there are more than MAX_SAMPLES_PER_CLASS
+                    if class_indices.size > MAX_SAMPLES_PER_CLASS:
+                        #If there are more than 100 we must limit the number
+                        # of samples to 1000
+                        class_indices = random.sample(list(class_indices),
+                                                    MAX_SAMPLES_PER_CLASS)
+                    #We concatenate the selected samples to the activity set
+                    limited_training_data = np.concatenate((limited_training_data,
+                                                            training_data[class_indices]),
+                                                           0)
+                    limited_training_class = np.concatenate((limited_training_class,
+                                                             training_class[class_indices]),
+                                                            0)
+                #We replace the variables
+                training_data = limited_training_data
+                training_class = limited_training_class
+            
+
+            #We standarize and normalize the training data
+            scaler = StandardScaler()
+            training_data = scaler.fit_transform(training_data)
+            normalize(training_data)
+
             #We run the classifer
-            classifier = GaussianNB(var_smoothing=1e-7)
+            classifier = SVC(SVM_C, 'rbf', gamma=SVM_GAMMA,
+                             probability = prev_class_pos != -1)
             classifier.fit(training_data, training_class)
 
             #We extract the predictions:
-            prediction_classes = ev.obtain_classifier_prediction(len(dataset.ACTIVITIY_NAMES),
-                                                                 testing_data,
-                                                                 prev_class_pos,
-                                                                 classifier.predict,
-                                                                 classifier.predict_proba)
+            proba_func = None if prev_class_pos == -1 else classifier.predict_proba
+            prediction_classes = ev.obtain_classifier_prediction_svm(len(dataset.ACTIVITIY_NAMES),
+                                                                     testing_data,
+                                                                     prev_class_pos,
+                                                                     classifier.predict,
+                                                                     proba_func,
+                                                                     scaler,
+                                                                     normalize)
             
             #We build a confusion matrix to measure the quality of results
             confusion_matrix = ev.obtain_confusion_matrix(len(dataset.ACTIVITIY_NAMES),
@@ -203,7 +248,7 @@ if __name__ == "__main__":
             
             #Generate the confusion matrix heat maps
             if window_size == WINDOW_SIZES[0]:
-                header = sys.argv[3] + "_" + feature
+                header = placeholder_name + "_" + feature
                 confusion_matrix_file.gen_confusion_matrix_heatmap(header,
                                                                    confusion_matrix,
                                                                    dataset.ACTIVITIY_NAMES,
@@ -217,7 +262,7 @@ if __name__ == "__main__":
     
     #End window loop
     
-    print("Printing results...", sys.argv[3])
+    print("Printing results...", placeholder_name)
     #Print prior probabilitites (if needed)
     if prior_needed:
         prior_file.print_results()
