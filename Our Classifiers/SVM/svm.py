@@ -112,29 +112,27 @@ if __name__ == "__main__":
         emi_matrix = fe.obtain_mutual_information_ext_matrix(segmented_data,
                                                              dataset.NUM_EVENTS)
         
-        
         #Try different features
-        for ff, feature in enumerate(features):
+        for ff, feature_str in enumerate(features):
 
             #Configuring the features
-            if feature == "BASE":
-                feature_vector = [fe.Features.SIMPLE_COUNT]
-            elif feature == "TD":
-                feature_vector = [fe.Features.TD_COUNT]
-            elif feature == "EMI":
-                feature_vector = [fe.Features.MATRIX_COUNT]
-            elif feature == "TD+EMI":
-                feature_vector = [fe.Features.MATRIX_TD_COUNT]
+            if feature_str == "BASE":
+                feature = fe.Features.SIMPLE_COUNT
+            elif feature_str == "TD":
+                feature = fe.Features.TD_COUNT
+            elif feature_str == "EMI":
+                feature = fe.Features.MATRIX_COUNT
+            elif feature_str == "TD+EMI":
+                feature = fe.Features.MATRIX_TD_COUNT
             else:
-                print(feature)
+                print(feature_str)
                 msg_error("Feature not identified (this issue should've " +
                         "been checked by now)...")
             
             #Obtain feature vectors
             temp_data = fe.obtain_event_segmentation_data(segmented_data,
-                                                          feature_vector,
+                                                          feature,
                                                           dataset.NUM_EVENTS,
-                                                          dataset.NUM_ACTIVITIES,
                                                           emi_matrix)
             feature_data, feature_class = temp_data
 
@@ -144,7 +142,7 @@ if __name__ == "__main__":
             temp_recall = np.zeros((NUM_FOLDS, dataset.NUM_ACTIVITIES+1))
             temp_fscore = np.zeros((NUM_FOLDS, dataset.NUM_ACTIVITIES+1))
             global_confusion_matrix = ev.obtain_empty_confusion_matrix(dataset.NUM_ACTIVITIES)
-            classifier = SVC(SVM_C, 'rbf', gamma=SVM_GAMMA, tol=1e-4)
+            classifier = SVC(SVM_C, 'rbf', gamma=SVM_GAMMA, tol=1e-5)
 
             #We must now perform the K folds
             kf = KFold(n_splits=NUM_FOLDS, shuffle = True,
@@ -164,9 +162,6 @@ if __name__ == "__main__":
                                                  MAX_SAMPLES_TOTAL,
                                                  MAX_SAMPLES_PER_CLASS)
                 training_data, training_class = temp
-
-                #We run the classifer
-                classifier.fit(training_data, training_class)
             
                 #We standarize and normalize the training data
                 scaler = StandardScaler()
@@ -174,7 +169,6 @@ if __name__ == "__main__":
                 normalize(training_data)
 
                 #We run the classifer
-                classifier = SVC(SVM_C, 'rbf', gamma=SVM_GAMMA, tol=1e-4)
                 classifier.fit(training_data, training_class)
 
                 #We extract the predictions:
@@ -219,12 +213,12 @@ if __name__ == "__main__":
 
             #We add the result to the confusion matrix file:
             header = "Window Size: " + str(window_size)
-            header += "; Feature " + feature
+            header += "; Feature " + feature_str
             confusion_matrix_file.add_confusion_matrix(header,
                                                        global_confusion_matrix)
             
             #Generate the confusion matrix heat maps
-            header = dataset_name + "_" + feature
+            header = sys.argv[2] + "_Feature_" + feature_str
             header += "_WinSize_" + str(window_size)
             confusion_matrix_file.gen_confusion_matrix_heatmap(header,
                                                                confusion_matrix,

@@ -12,7 +12,6 @@ class Features:
     MATRIX_COUNT = 2
     TD_COUNT = 3
     MATRIX_TD_COUNT = 4
-    PWA = 5
 
 ##Functions to extract the features themselves
 def _obtain_seconds_mignight_last_event(window: list):
@@ -112,97 +111,10 @@ def _obtain_time_dependency_count_sensors(window:list, num_sensor:int):
         sensor_count[event[1]] += exp(td_constant*(ref_time - event[0]).total_seconds())
     return sensor_count
 
-##Class extraction features
-def _obtain_class(window:list):
-    """
-    Given a window, returns the activity of the last event in it
-    
-    :param window list: the window
-    :returns: returns the activity of the last event
-    :rtype: int
-    """
-    return window[-1][-1]
-
 ##Obtaining the feature
 NUMBER_BASE_FEATURES = 10
-def obtain_feature_vector(features:list, window:list, classes:list,
-                          num_classes:int, prev_class: int, num_sensor: int,
-                          mi):
-    """
-    Extracts the given features from the given window.
-    :raises ValueError: a given feature is not supported
-
-    :param feature list: the feature to be extracted. Must be recognized
-    :param window list: the window
-    :param classes list: possible classes in the data
-    :param num_classes int: number of classes
-    :param prev_class int: the class of the window before this one (excluding
-    unrecognized activities).
-    :param num_sensor int: number of sensors
-    :returns: the feature vector
-    :rtype: list
-    """
-
-    #Add base features
-    #Day of the week is implemented using one-hot enconding
-    day_week = _obtain_week_day_last_event(window)
-    feature_vector = [ int(i==day_week) for i in range(1,8) ]
-    feature_vector.append(_obtain_seconds_mignight_last_event(window))
-    feature_vector.append(_obtain_seconds_mignight_first_event(window))
-    feature_vector.append(_obtain_window_seconds_elapsed(window))
-
-    #Add additional features
-    for feature in features:
-        #Simple Count
-        if feature == Features.SIMPLE_COUNT:
-            #We have to explore every posible sensor
-            feature_vector += _obtain_simple_count_sensors(window, num_sensor)
-        
-        #Previous Window Activity 
-        elif feature == Features.PWA:
-            #Previous Window Activity
-            # If now previous activity is detected, make it so the previous
-            # class is 'chosen' at random from the rest 
-            pwa = [int(x_class == prev_class) for x_class in classes]
-            if not any(pwa):
-                pwa = [1/num_classes for x_class in classes]
-            feature_vector = feature_vector + pwa
-        
-        #Mutual Information matrix Count
-        elif feature == Features.MATRIX_COUNT:
-            if mi is None:
-                raise ValueError("No Mutual Information matrix is defined!")
-            #We have to explore every posible sensor
-            count = _obtain_simple_count_sensors(window, num_sensor)
-            #We multiply the count by the coefficient in the MI matrix
-            mi_count = count * mi[:, window[-1][1]]
-            #We append the results 
-            feature_vector += list(mi_count) 
-        
-        #Mutual Information matrix + Time dependency count
-        elif feature == Features.MATRIX_TD_COUNT:
-            if mi is None:
-                raise ValueError("No Mutual Information matrix is defined!")
-            #We have to explore every posible sensor
-            count = _obtain_time_dependency_count_sensors(window, num_sensor)
-            #We multiply the count by the coefficient in the MI matrix
-            mi_count = count * mi[:, window[-1][1]]
-            #We append the results 
-            feature_vector += list(mi_count)
-        
-        #Time dependency count
-        elif feature == Features.TD_COUNT:
-            #We have to explore every posible sensor
-            feature_vector += _obtain_time_dependency_count_sensors(window,
-                                                                    num_sensor)
-            
-        else:
-            #Unrecognized sensor
-            raise ValueError("Unrecognized feature: \"" + feature + "\"")
-    return feature_vector
-
-def obtain_event_segmentation_data(data:list, features:str, num_sensor:int,
-                                   num_classes:int, mi = None):
+def obtain_event_segmentation_data(data:list, feature:int, num_sensor:int,
+                                   mi = None):
     """
     Given data and window size, obtain the features through the given window
     size
@@ -216,27 +128,64 @@ def obtain_event_segmentation_data(data:list, features:str, num_sensor:int,
     :rtype: numpy.array, numpy.array
     """
     #Obtain the number of features:
-    num_features = NUMBER_BASE_FEATURES
-    num_features += num_classes*(Features.PWA in features)
-    num_features += num_sensor*(Features.SIMPLE_COUNT in features)
-    num_features += num_sensor*(Features.MATRIX_COUNT in features)
-    num_features += num_sensor*(Features.MATRIX_TD_COUNT in features)
-    num_features += num_sensor*(Features.TD_COUNT in features)
+    num_features = NUMBER_BASE_FEATURES + num_sensor
 
     #We prepare where to store the data
     temp_data = np.zeros((len(data), num_features))
     temp_class = np.zeros((len(data)), dtype=int)
-    classes = np.linspace(0, num_classes-1, num_classes)
-    last_class = num_classes;
     
     #We cover all the possible windows
     for window_index, window in enumerate(data):
-        temp_data[window_index] = obtain_feature_vector(features, window,
-                                                        classes, num_classes,
-                                                        last_class,
-                                                        num_sensor, mi)
-        temp_class[window_index] = _obtain_class(window)
-        last_class = temp_class[window_index] if temp_class[window_index] != num_classes else last_class
+        #Obtain the class
+        temp_class[window_index] = window[-1][-1]
+
+        ##Obtain the feature vector
+        day_week = _obtain_week_day_last_event(window)
+        temp_data[window_index, 0:7] = [ int(i==day_week) for i in range(1,8) ]
+        temp_data[window_index, 7] = _obtain_seconds_mignight_last_event(window)
+        temp_data[window_index, 8] = _obtain_seconds_mignight_first_event(window)
+        temp_data[window_index, 9] = _obtain_window_seconds_elapsed(window)
+
+        #Add the correct sensor count depending on the additional features
+        #Simple Count
+        if feature == Features.SIMPLE_COUNT:
+            #We have to explore every posible sensor
+            temp = _obtain_simple_count_sensors(window, num_sensor)
+            temp_data[window_index, NUMBER_BASE_FEATURES : num_features] = temp
+        
+        #Mutual Information matrix Count
+        elif feature == Features.MATRIX_COUNT:
+            if mi is None:
+                raise ValueError("No Mutual Information matrix is defined!")
+            #We have to explore every posible sensor
+            count = _obtain_simple_count_sensors(window, num_sensor)
+            #We multiply the count by the coefficient in the MI matrix
+            mi_count = count * mi[:, window[-1][1]]
+            #We append the results 
+            temp_data[window_index, NUMBER_BASE_FEATURES : num_features] = mi_count
+        
+        #Mutual Information matrix + Time dependency count
+        elif feature == Features.MATRIX_TD_COUNT:
+            if mi is None:
+                raise ValueError("No Mutual Information matrix is defined!")
+            #We have to explore every posible sensor
+            count = _obtain_time_dependency_count_sensors(window, num_sensor)
+            #We multiply the count by the coefficient in the MI matrix
+            mi_count = count * mi[:, window[-1][1]]
+            #We append the results 
+            temp_data[window_index, NUMBER_BASE_FEATURES : num_features] = mi_count
+        
+        #Time dependency count
+        elif feature == Features.TD_COUNT:
+            #We have to explore every posible sensor
+            temp = _obtain_time_dependency_count_sensors(window, num_sensor)
+            temp_data[window_index, NUMBER_BASE_FEATURES : num_features] = temp 
+            
+        else:
+            #Unrecognized sensor
+            raise ValueError("Unrecognized feature: \"" + feature + "\"")
+    
+    ##End window loop
     return temp_data, temp_class
 
 def segment_data(data:list, window_size:int):
