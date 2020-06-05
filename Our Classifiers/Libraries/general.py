@@ -5,7 +5,8 @@ sys.path.append('../Datasets')
 import Kyoto1, Kyoto2, Kyoto3, Aruba
 
 #WINDOW_SIZES = [5, 12, 19]
-WINDOW_SIZES = [5, 12, 19, 26, 33]
+#WINDOW_SIZES = [5, 12, 19, 26, 33]
+WINDOW_SIZES = [10, 20, 30, 40, 50]
 
 ##List of possible feature configurations
 POSIBLE_FEATURE_CONFIG = ["BASE", "TD", "EMI", "TD+EMI"] #There's also ALL
@@ -28,7 +29,7 @@ def load_dataset(argv: str):
     :returns: the module and the palceholder name
     :rtype: module, str
     """
-    dataset = sys.argv[3].upper()
+    dataset = argv.upper()
     if dataset == "KYOTO1":
         return Kyoto1, "OA"
     elif dataset == "KYOTO2":

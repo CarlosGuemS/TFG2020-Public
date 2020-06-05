@@ -30,8 +30,7 @@ from general import POSIBLE_FEATURE_CONFIG
 #Constants
 SVM_C = 20
 SVM_GAMMA = 0.3
-MAX_SAMPLES_TOTAL = 20000
-MAX_SAMPLES_PER_CLASS = 1000
+MAX_SAMPLES_TOTAL = 30000
 NUM_FOLDS = 10
 
 ##STR that indicates usage
@@ -159,8 +158,7 @@ if __name__ == "__main__":
                 #We check we don't have too many samples:
                 temp = fe.limit_training_samples(training_data, training_class,
                                                  dataset.NUM_ACTIVITIES,
-                                                 MAX_SAMPLES_TOTAL,
-                                                 MAX_SAMPLES_PER_CLASS)
+                                                 MAX_SAMPLES_TOTAL)
                 training_data, training_class = temp
             
                 #We standarize and normalize the training data

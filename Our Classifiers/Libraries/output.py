@@ -299,7 +299,7 @@ class Latex_Table:
         Prints the results stored in the object
 
         :param file_name str: the name of the file to be stored
-        :param num_decimal int: number of decimals to print
+        :param num_decimal int: number of decimals to print (DEPRECATED)
         :param average_list_print: indicates if the total averages are printed
         as a separate list. Used to generate graphs in matplotlib
         """
@@ -316,8 +316,7 @@ class Latex_Table:
             print(self.row_headers[ii], end='', file=table_file)
             #Row content
             for elem in self.data[ii, :]:
-                val_to_print = _round_decimal(elem, num_decimal)
-                print(" & ", val_to_print, sep='', end='', file=table_file)
+                print(" & ", "%.4f" % elem, sep='', end='', file=table_file)
             #Row end
             print(' \\\\', file=table_file)
         
@@ -326,10 +325,12 @@ class Latex_Table:
 
         #We check if we need to print the average
         if average_list_print:
+            list_averages = [elem for elem in self.data[:, -1]]
             print("\n\n", file=table_file)
-            print([float(_round_decimal(elem, num_decimal))
-                   for elem in self.data[:, -1]],
-                  file=table_file)
+            print('[', end='', file=table_file)
+            for elem in list_averages[:-1]:
+                print("%.4f" % elem, ", ", sep='', end='', file=table_file)
+            print("%.4f" % list_averages[-1], "]", sep='', file=table_file)
 
 
         #We close the file:

@@ -1,7 +1,7 @@
 import datetime, sys
 import numpy as np
 from math import exp
-from itertools import permutations
+from itertools import permutations, chain
 import random
 random.seed(1234)
 
@@ -14,6 +14,7 @@ class Features:
     MATRIX_TD_COUNT = 4
 
 ##Functions to extract the features themselves
+## Non-sequential models
 def _obtain_seconds_mignight_last_event(window: list):
     """
     Given a window, returns the amount of seconds elapsed between midnight
@@ -237,7 +238,7 @@ def obtain_mutual_information_ext_matrix(windows: list, number_of_sensors:int):
 
 ##Limit of training samples
 def limit_training_samples(samples, samples_classes, num_classes:int,
-                           max_samples_total:int, max_samples_class:int):
+                           max_samples_total:int):
     """
     Returns a set of sample and classes limited to given number of samples.
     If there are more samples than can be used they are chosen randomply.
@@ -247,7 +248,8 @@ def limit_training_samples(samples, samples_classes, num_classes:int,
     to the samples in 'samples'
     :param num_classes int: number of possible classes in the data
     :param max_samples_total int: maximum number of samples
-    :param max_samples_class int: maximum number of samples per class
+    :returns: the limit set of samples
+    :rtype: numpy.array, numpy.array 
     """
 
      #We check we don't have too many samples:
@@ -255,6 +257,7 @@ def limit_training_samples(samples, samples_classes, num_classes:int,
         #We need to limit the amount of samples for SVM to 1000
         limited_training_data = np.empty((0,samples.shape[1]))
         limited_training_class = np.empty(0)
+        max_samples_class = max_samples_total // num_classes
         for c in range(num_classes):
             #Indices of class c
             class_indices = np.where(samples_classes == c)[0]
@@ -276,3 +279,20 @@ def limit_training_samples(samples, samples_classes, num_classes:int,
     else:
         #We don't exceed the maxium
         return samples, samples_classes
+
+
+## For sequential models
+def extract_sensor_chains(event_chains: list):
+    """
+    From a list of list of events, obtain the chains of sensors and their classes
+    :param event_chains list: chains of events
+    :returns: a generator with the chains of sensors and their classes
+    :rtype: generator
+    """
+    for event_chain in event_chains:
+        #We extact the sensora
+        sensor_chain = [['sensor='+str(event[1])] for event in event_chain]
+        #Divide sensors and classes
+        class_chain = [str(event[-1]) for event in event_chain]
+        #Yield the results
+        yield sensor_chain, class_chain
