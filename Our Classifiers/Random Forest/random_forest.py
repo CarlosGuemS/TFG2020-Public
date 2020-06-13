@@ -8,7 +8,6 @@ random_state_trees = np.random.RandomState(1234)
 
 #Scikit learn
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import normalize, StandardScaler
 from sklearn.model_selection import KFold
 
 #Preprocessing
@@ -90,7 +89,7 @@ if __name__ == "__main__":
                                                 dataset.ACTIVITIY_NAMES)
                        for f in features]
     #Fscore
-    fscore_files = [out.Results_Per_Activity(sys.argv[2]+"_"+f+"_ACCURACY",
+    fscore_files = [out.Results_Per_Activity(sys.argv[2]+"_"+f+"_FSCORE",
                                             WINDOW_SIZES,
                                             dataset.ACTIVITIY_NAMES)
                     for f in features]
@@ -105,10 +104,6 @@ if __name__ == "__main__":
     for window_size in WINDOW_SIZES:
         #We segment the data
         segmented_data = fe.segment_data(int_data, window_size)
-
-        #We build an Mutual Information Extended matrix
-        emi_matrix = fe.obtain_mutual_information_ext_matrix(segmented_data,
-                                                             dataset.NUM_EVENTS)
         
         #Try different features
         for ff, feature_str in enumerate(features):
@@ -130,9 +125,8 @@ if __name__ == "__main__":
             #Obtain feature vectors
             temp_data = fe.obtain_event_segmentation_data(segmented_data,
                                                           feature,
-                                                          dataset.NUM_EVENTS,
-                                                          emi_matrix)
-            feature_data, feature_class = temp_data
+                                                          dataset.NUM_EVENTS)
+            feature_data, feature_class, last_events = temp_data
 
             #We prepare the arrays to store the results of each K-fold
             temp_accuracy = np.zeros(NUM_FOLDS)
@@ -148,24 +142,22 @@ if __name__ == "__main__":
             fold_index = 0
             for train_index, test_index in kf.split(feature_data):
                 
-                #We perform the split
-                training_data = feature_data[train_index]
-                training_class = feature_class[train_index]
-                testing_data = feature_data[test_index]
-                testing_class = feature_class[test_index]
+                #We build an Mutual Information Extended  (if needed)
+                emi_data = feature_data
+                if feature == fe.Features.MATRIX_COUNT or feature == fe.Features.MATRIX_TD_COUNT:
+                    emi_matrix = fe.obtain_mutual_information_ext_matrix(segmented_data,
+                                                                         train_index,
+                                                                         dataset.NUM_EVENTS)
+                    emi_data = fe.apply_sensor_sensor_dependency(feature_data,
+                                                                 last_events,
+                                                                 emi_matrix,
+                                                                 dataset.NUM_EVENTS)
 
-                #We check we don't have too many samples:
-                """
-                temp = fe.limit_training_samples(training_data, training_class,
-                                                 dataset.NUM_ACTIVITIES,
-                                                 MAX_SAMPLES_TOTAL)
-                training_data, training_class = temp
-                """
-            
-                #We standarize and normalize the training data
-                scaler = StandardScaler()
-                training_data = scaler.fit_transform(training_data)
-                normalize(training_data)
+                #We perform the split
+                training_data = emi_data[train_index]
+                training_class = feature_class[train_index]
+                testing_data = emi_data[test_index]
+                testing_class = feature_class[test_index]
 
                 #We run the classifer
                 classifier.fit(training_data, training_class)
@@ -173,9 +165,7 @@ if __name__ == "__main__":
                 #We extract the predictions:
                 prediction_classes = ev.obtain_classifier_prediction(dataset.NUM_ACTIVITIES,
                                                                      testing_data,
-                                                                     classifier.predict,
-                                                                     scaler,
-                                                                     normalize)
+                                                                     classifier.predict)
                 #We store the results in the confusion matrix
                 confusion_matrix = ev.obtain_confusion_matrix(dataset.NUM_ACTIVITIES,
                                                               testing_class,

@@ -68,7 +68,8 @@ class Accuracy_Table:
         #Print the headers
         print(*self.header, sep=",", file = table_file)
         #Print the values
-        print(*self.data, sep=",", file = table_file)
+        for win, val in self.data:
+            print(win, val, sep=",", file = table_file)
         #Print the average
         print("Average", self.obtain_average(), sep=',', file=table_file)
         #Close file
@@ -261,8 +262,8 @@ class Latex_Table:
 
     #We lay out the constants: headers and similar
     row_headers = ["\multirow{4}{*}{\PLACEHOLDER} & Base",
-                   "\cline{2-8} & Base + TD", "\cline{2-8} & Base + EMI",
-                   "\cline{2-8} & Base + TD + EMI"]
+                   "\cline{2-8} & Base + TD", "\cline{2-8} & Base + SD",
+                   "\cline{2-8} & Base + TD + SD"]
     
     num_rows = 4
 

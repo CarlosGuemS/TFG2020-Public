@@ -114,19 +114,17 @@ def _obtain_time_dependency_count_sensors(window:list, num_sensor:int):
 
 ##Obtaining the feature
 NUMBER_BASE_FEATURES = 10
-def obtain_event_segmentation_data(data:list, feature:int, num_sensor:int,
-                                   mi = None):
+def obtain_event_segmentation_data(data:list, feature:int, num_sensor:int):
     """
     Given data and window size, obtain the features through the given window
     size
 
     :param data list: the data, already segmented into windows
-    :param window_size int: window size
+    :param feature int: the feature code
     :param num_sensor int: number of sensors in the data
-    :param num_classes int: number of possible classes in the data
-    :param mi numpy.array: mutual information matrix (if applicable)
-    :returns: array of features and the corresponding array of classes
-    :rtype: numpy.array, numpy.array
+    :returns: array of features, the corresponding array of classes
+    and the last event of each window
+    :rtype: numpy.array, numpy.array, numpy.array
     """
     #Obtain the number of features:
     num_features = NUMBER_BASE_FEATURES + num_sensor
@@ -134,11 +132,15 @@ def obtain_event_segmentation_data(data:list, feature:int, num_sensor:int,
     #We prepare where to store the data
     temp_data = np.zeros((len(data), num_features))
     temp_class = np.zeros((len(data)), dtype=int)
+    last_windows = np.zeros((len(data)), dtype=int)
     
     #We cover all the possible windows
     for window_index, window in enumerate(data):
         #Obtain the class
         temp_class[window_index] = window[-1][-1]
+
+        #We obtain the last event
+        last_windows[window_index] = window[-1][1]
 
         ##Obtain the feature vector
         day_week = _obtain_week_day_last_event(window)
@@ -148,36 +150,15 @@ def obtain_event_segmentation_data(data:list, feature:int, num_sensor:int,
         temp_data[window_index, 9] = _obtain_window_seconds_elapsed(window)
 
         #Add the correct sensor count depending on the additional features
-        #Simple Count
-        if feature == Features.SIMPLE_COUNT:
+        #Simple Count or Mutual Information matrix Count
+        if feature == Features.SIMPLE_COUNT or feature == Features.MATRIX_COUNT:
             #We have to explore every posible sensor
             temp = _obtain_simple_count_sensors(window, num_sensor)
             temp_data[window_index, NUMBER_BASE_FEATURES : num_features] = temp
         
-        #Mutual Information matrix Count
-        elif feature == Features.MATRIX_COUNT:
-            if mi is None:
-                raise ValueError("No Mutual Information matrix is defined!")
-            #We have to explore every posible sensor
-            count = _obtain_simple_count_sensors(window, num_sensor)
-            #We multiply the count by the coefficient in the MI matrix
-            mi_count = count * mi[:, window[-1][1]]
-            #We append the results 
-            temp_data[window_index, NUMBER_BASE_FEATURES : num_features] = mi_count
-        
-        #Mutual Information matrix + Time dependency count
-        elif feature == Features.MATRIX_TD_COUNT:
-            if mi is None:
-                raise ValueError("No Mutual Information matrix is defined!")
-            #We have to explore every posible sensor
-            count = _obtain_time_dependency_count_sensors(window, num_sensor)
-            #We multiply the count by the coefficient in the MI matrix
-            mi_count = count * mi[:, window[-1][1]]
-            #We append the results 
-            temp_data[window_index, NUMBER_BASE_FEATURES : num_features] = mi_count
-        
         #Time dependency count
-        elif feature == Features.TD_COUNT:
+        # or Mutual Information matrix + Time dependency count
+        elif feature == Features.TD_COUNT or feature == Features.MATRIX_TD_COUNT:
             #We have to explore every posible sensor
             temp = _obtain_time_dependency_count_sensors(window, num_sensor)
             temp_data[window_index, NUMBER_BASE_FEATURES : num_features] = temp 
@@ -187,7 +168,35 @@ def obtain_event_segmentation_data(data:list, feature:int, num_sensor:int,
             raise ValueError("Unrecognized feature: \"" + feature + "\"")
     
     ##End window loop
-    return temp_data, temp_class
+    return temp_data, temp_class, last_windows
+
+def apply_sensor_sensor_dependency(data, last_event, mi, num_sensor:int):
+    """
+    Given already segmented data, apply the MI to it
+
+    :param data numpy.array:
+    :param last_event list: the list of last events
+    :param mi numpy.array: mutual information matrix (if applicable)
+    :param num_sensor int: number of sensors in the data
+    :returns: a copy of the data with the mi applied
+    :rtype: numpy.array
+    """
+    num_features = NUMBER_BASE_FEATURES + num_sensor
+
+    #We first create a copy of the data
+    #and copy the features unaffected
+    data_copy = np.empty(data.shape)
+    data_copy[:, :NUMBER_BASE_FEATURES] = data[:, :NUMBER_BASE_FEATURES]
+    #We now modify each count
+    for feature_index in range(data.shape[0]):
+        #We obtain the sensor count
+        temp = data[feature_index, NUMBER_BASE_FEATURES : num_features]
+        #We apply the MI
+        temp = temp * mi[:, last_event[feature_index]]
+        #We store it once again
+        data_copy[feature_index, NUMBER_BASE_FEATURES : num_features] = temp
+    
+    return data_copy
 
 def segment_data(data:list, window_size:int):
     """
@@ -207,12 +216,14 @@ def segment_data(data:list, window_size:int):
 
 
 ##Sensor Windows Mutual Information Extension
-def obtain_mutual_information_ext_matrix(windows: list, number_of_sensors:int):
+def obtain_mutual_information_ext_matrix(windows: list, windows_indexes, number_of_sensors:int):
     """
     Builds a mutual information adjacency extended matrix using the given data.
 
     :param windows list: the data from where to build the adjacency matrix.
     The data must be sorted into windows already
+    :param windows_indexes numpy.array: the of indices indicating the training
+    windows
     :param number_of_sensors int: number of possible sensors. Also the number
     of rows and columns
     :returns: the mutual information adjacency matrix
@@ -222,7 +233,9 @@ def obtain_mutual_information_ext_matrix(windows: list, number_of_sensors:int):
     mi = np.zeros((number_of_sensors, number_of_sensors))
 
     #We analize each window
-    for window in windows:
+    for win_index in windows_indexes:
+        #Obtain the window
+        window = windows[win_index]
         #We obtain all the possible combinations of sensors within the window
         sensors_in_window = set(map(lambda event: event[1], window))
         #We analyze all possible permutations
