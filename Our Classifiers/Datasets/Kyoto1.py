@@ -1,4 +1,5 @@
 import sys, os, pickle, datetime
+import numpy as np
 
 sys.path.append("../Libraries")
 import dataset_processing as dp
@@ -24,6 +25,7 @@ ACTIVITIES = [".t1", ".t2", ".t3", ".t4", ".t5"]
 ACTIVITIY_NAMES = ["Make a phone call", "Wash hands", "Cook", "Eat",
                    "Clean"]
 NUM_ACTIVITIES = 5
+ACTIVITY_LABELS = np.arange(NUM_ACTIVITIES)
 
 ##Sensor Data
 NUM_EVENTS = 39

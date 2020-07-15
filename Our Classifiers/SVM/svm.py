@@ -9,6 +9,7 @@ random_state = np.random.RandomState(1234)
 from sklearn.svm import SVC
 from sklearn.preprocessing import normalize, StandardScaler
 from sklearn.model_selection import KFold
+from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
 
 #Preprocessing
 sys.path.append('../Libraries')
@@ -80,16 +81,6 @@ if __name__ == "__main__":
     #Accuracy
     accuracy_files = [out.Accuracy_Table(sys.argv[2]+"_"+f+"_ACCURACY")
                       for f in features]
-    #Recall 
-    recall_files = [out.Results_Per_Activity(sys.argv[2]+"_"+f+"_RECALL",
-                                             WINDOW_SIZES,
-                                             dataset.ACTIVITIY_NAMES)
-                    for f in features]
-    #Precision
-    precision_files = [out.Results_Per_Activity(sys.argv[2]+"_"+f+"_PRECISON",
-                                                WINDOW_SIZES,
-                                                dataset.ACTIVITIY_NAMES)
-                       for f in features]
     #Fscore
     fscore_files = [out.Results_Per_Activity(sys.argv[2]+"_"+f+"_FSCORE",
                                             WINDOW_SIZES,
@@ -132,10 +123,9 @@ if __name__ == "__main__":
 
             #We prepare the arrays to store the results of each K-fold
             temp_accuracy = np.zeros(NUM_FOLDS)
-            temp_precision = np.zeros((NUM_FOLDS, dataset.NUM_ACTIVITIES+1))
-            temp_recall = np.zeros((NUM_FOLDS, dataset.NUM_ACTIVITIES+1))
             temp_fscore = np.zeros((NUM_FOLDS, dataset.NUM_ACTIVITIES+1))
-            global_confusion_matrix = ev.obtain_empty_confusion_matrix(dataset.NUM_ACTIVITIES)
+            global_predictions = []
+            global_true_class = []
             classifier = SVC(SVM_C, 'rbf', gamma=SVM_GAMMA, tol=1e-5)
 
             #We must now perform the K folds
@@ -161,6 +151,10 @@ if __name__ == "__main__":
                 testing_data = emi_data[test_index]
                 testing_class = feature_class[test_index]
 
+                #Obtain prior probabilities
+                priors = ev.obtain_prior_probabilitites(testing_class,
+                                                        dataset.NUM_ACTIVITIES)
+
                 #We check we don't have too many samples:
                 temp = fe.limit_training_samples(training_data, training_class,
                                                  dataset.NUM_ACTIVITIES,
@@ -181,39 +175,36 @@ if __name__ == "__main__":
                                                                      classifier.predict,
                                                                      scaler,
                                                                      normalize)
-                #We store the results in the confusion matrix
-                confusion_matrix = ev.obtain_confusion_matrix(dataset.NUM_ACTIVITIES,
-                                                              testing_class,
-                                                              prediction_classes)
-
                 #We update the gobal confusion matrix
-                global_confusion_matrix = global_confusion_matrix + confusion_matrix
+                global_predictions.append(prediction_classes)
+                global_true_class.append(testing_class)
                 
                 #Store the accuracy
-                temp_accuracy[fold_index] = ev.obtain_accuracy(confusion_matrix)
-                #Store the precision
-                temp_precision[fold_index] = ev.obtain_precision(confusion_matrix)
-                #Store the recall
-                temp_recall[fold_index] = ev.obtain_recall(confusion_matrix)
+                temp_accuracy[fold_index] = accuracy_score(testing_class, prediction_classes)
                 #Store the fscore
-                temp_fscore[fold_index] = ev.obtain_fscore(temp_precision[fold_index, 1:],
-                                                           temp_recall[fold_index, 1:])
+                temp_fscore[fold_index, 1:] = f1_score(testing_class,
+                                                       prediction_classes,
+                                                       labels=dataset.ACTIVITY_LABELS,
+                                                       average=None)
+                temp_fscore[fold_index, 0] = (temp_fscore[fold_index, 1:] * priors).sum()
 
                 #We update the fold_index
                 fold_index += 1
                  #Printing progress
                 counter.checkmarck()
 
-            #We obtain the global values (across all folds)
+            #We obtain the global values (across all folds) and store them
             accuracy = temp_accuracy.mean()
-            precision = temp_precision.mean(axis=0)
-            recall = temp_recall.mean(axis=0)
             fscore = temp_fscore.mean(axis=0)
-
             accuracy_files[ff].insert_data(window_size, accuracy)
-            precision_files[ff].store(precision)
-            recall_files[ff].store(recall)
             fscore_files[ff].store(fscore)
+
+            #We compute the resulting confusion matrix
+            global_predictions = np.concatenate(global_predictions, 0)
+            global_true_class = np.concatenate(global_true_class, 0)
+            global_confusion_matrix = confusion_matrix(global_true_class,
+                                                       global_predictions,
+                                                       labels = dataset.ACTIVITY_LABELS)
 
             #We add the result to the confusion matrix file:
             header = "Window Size: " + str(window_size)
@@ -225,7 +216,7 @@ if __name__ == "__main__":
             header = sys.argv[2] + "_Feature_" + feature_str
             header += "_WinSize_" + str(window_size)
             confusion_matrix_file.gen_confusion_matrix_heatmap(header,
-                                                               confusion_matrix,
+                                                               global_confusion_matrix,
                                                                dataset.ACTIVITIY_NAMES,
                                                                True)
         
@@ -238,10 +229,6 @@ if __name__ == "__main__":
     for ff in range(len(features)):
         #Accuracy
         accuracy_files[ff].print_results()
-        #Precision
-        precision_files[ff].print_results()
-        #Recall
-        recall_files[ff].print_results()
         #Fscore
         fscore_files[ff].print_results()
 

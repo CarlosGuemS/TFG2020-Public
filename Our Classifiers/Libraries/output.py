@@ -219,14 +219,21 @@ class Confusion_Matrix:
 
         #First we normalize (if needed):
         if normalize:
+            confusion_matrix = confusion_matrix.astype(float)
             for ii in range(self.number_activities):
                 total = np.sum(confusion_matrix[ii, :])
                 total = total if total else 1
                 confusion_matrix[ii, :] = confusion_matrix[ii,:] / total
 
+        
+
         #We create the figure
         fig, ax = plt.subplots(figsize = (8, 8))
         im = ax.imshow(confusion_matrix, cmap="magma")
+
+        #We add the labels on the sides
+        ax.set_ylabel('True class')
+        ax.set_xlabel('Predicted class')
 
         #We plot the axes
         num_ticks = np.arange(len(classes))

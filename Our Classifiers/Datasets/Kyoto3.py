@@ -1,4 +1,5 @@
 import sys, os, pickle, datetime
+import numpy as np
 
 sys.path.append("../Libraries")
 import dataset_processing as dp
@@ -18,10 +19,12 @@ PARTICIPANTS = ["p04", "p13", "p14", "p15", "p17", "p18", "p20", "p23", "p24",
 RAW_FILE_EXTENSION = ".interwoven"
 
 ##ACTIVITIES
-ACTIVITIY_NAMES = ["Fill medication dispenser", "Wash DVD", "Water plants",
+ACTIVITIY_NAMES = ["Fill medication dispenser", "Watch DVD", "Water plants",
                    "Answer the phone", "Prepare birthday card", "Prepare soup",
                    "Clean", "Choose outfit"]
 NUM_ACTIVITIES = 8
+ACTIVITY_LABELS = np.arange(NUM_ACTIVITIES)
+
 ##Sensor Data
 NUM_EVENTS = 48
 REAL_VALUE_EVENTS = set([41, 42, 43 ,45, 46])
